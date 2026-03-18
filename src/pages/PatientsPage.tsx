@@ -6,6 +6,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { GradeBadge } from "@/components/GradeBadge";
 import { ConfidenceGauge } from "@/components/ConfidenceGauge";
 import { PatientDetailPanel } from "@/components/PatientDetailPanel";
+import { AddPatientDialog } from "@/components/AddPatientDialog";
 
 const containerVariants = {
   hidden: { opacity: 0, y: 8 },
@@ -21,6 +22,7 @@ export default function PatientsPage() {
   const [search, setSearch] = useState("");
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [gradeFilter, setGradeFilter] = useState<number | null>(null);
+  const [showAddPatient, setShowAddPatient] = useState(false);
 
   const filtered = mockPatients.filter((p) => {
     const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) || p.id.toLowerCase().includes(search.toLowerCase());
@@ -37,7 +39,10 @@ export default function PatientsPage() {
               <h1 className="text-2xl font-medium tracking-tight">Patients</h1>
               <p className="text-sm text-muted-foreground mt-1">Electronic Health Records & Case Management</p>
             </div>
-            <button className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
+            <button
+              onClick={() => setShowAddPatient(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+            >
               <Plus className="w-4 h-4" />
               New Patient
             </button>
@@ -119,6 +124,8 @@ export default function PatientsPage() {
       {selectedPatient && (
         <PatientDetailPanel patient={selectedPatient} onClose={() => setSelectedPatient(null)} />
       )}
+
+      <AddPatientDialog open={showAddPatient} onClose={() => setShowAddPatient(false)} />
     </div>
   );
 }

@@ -34,7 +34,7 @@ export function AppSidebar() {
             animate={{ opacity: 1 }}
             className="text-sm font-semibold text-sidebar-accent-foreground whitespace-nowrap"
           >
-            OrthoAI Clinical
+            KneeXpert
           </motion.span>
         )}
       </div>
