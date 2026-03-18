@@ -9,6 +9,7 @@ import PatientsPage from "./pages/PatientsPage";
 import DiagnosticsPage from "./pages/DiagnosticsPage";
 import ReportsHubPage from "./pages/ReportsHubPage";
 import ReportDetailPage from "./pages/ReportDetailPage";
+import SettingsPage from "./pages/SettingsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
