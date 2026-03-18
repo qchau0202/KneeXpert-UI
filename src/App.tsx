@@ -27,6 +27,7 @@ const App = () => (
             <Route path="/diagnostics" element={<DiagnosticsPage />} />
             <Route path="/reports" element={<ReportsHubPage />} />
             <Route path="/reports/:patientId" element={<ReportDetailPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AppLayout>
