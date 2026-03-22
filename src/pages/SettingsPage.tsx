@@ -419,15 +419,35 @@ export default function SettingsPage() {
                     <Cpu className="w-4 h-4 text-primary" />
                     <p className="text-sm font-medium">Active Models</p>
                   </div>
-                  <div className="grid grid-cols-3 gap-3 mb-4">
+                  <p className="section-header mb-3">X-Ray Models (Phase I — Ensemble + Majority Voting)</p>
+                  <div className="grid grid-cols-3 gap-3 mb-6">
                     {[
-                      { name: "DenseNet201", task: "Classification", accuracy: "94.2%", status: "active" },
-                      { name: "ViT-B/16", task: "Global Analysis", accuracy: "92.8%", status: "active" },
-                      { name: "ResNet50", task: "Baseline", accuracy: "89.5%", status: "standby" },
+                      { name: "DenseNet201", task: "Detailed Classification", accuracy: "94.2%", status: "active" },
+                      { name: "ViT-B/16", task: "Global Context Analysis", accuracy: "92.8%", status: "active" },
+                      { name: "ResNet50", task: "Baseline Comparison", accuracy: "89.5%", status: "standby" },
                     ].map(model => (
                       <div key={model.name} className={`p-4 rounded-lg border ${model.status === "active" ? "border-primary/30 bg-primary-muted/30" : ""}`}>
                         <div className="flex items-center justify-between mb-2">
                           <p className="text-sm font-medium">{model.name}</p>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                            model.status === "active" ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
+                          }`}>{model.status}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">{model.task}</p>
+                        <p className="text-xs mt-1">Accuracy: <span className="font-medium">{model.accuracy}</span></p>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="section-header mb-3">MRI Models (Phase II — Swin-UNet + Classifier)</p>
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      { name: "Swin-UNet + DenseNet201", task: "Artifact Removal + Classification", accuracy: "93.5%", status: "active" },
+                      { name: "Swin-UNet + ViT-B/16", task: "Artifact Removal + Global Analysis", accuracy: "91.7%", status: "active" },
+                      { name: "Swin-UNet + ResNet50", task: "Artifact Removal + Baseline", accuracy: "88.2%", status: "standby" },
+                    ].map(model => (
+                      <div key={model.name} className={`p-4 rounded-lg border ${model.status === "active" ? "border-primary/30 bg-primary-muted/30" : ""}`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-[11px] font-medium">{model.name}</p>
                           <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
                             model.status === "active" ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
                           }`}>{model.status}</span>
