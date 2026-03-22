@@ -15,12 +15,13 @@ const itemVariants = {
   visible: { opacity: 1, y: 0 },
 };
 
-type SettingsTab = "ai-training" | "dataset" | "models" | "profile" | "notifications" | "appearance" | "security" | "system";
+type SettingsTab = "ai-training" | "dataset" | "models" | "mri-pipeline" | "profile" | "notifications" | "appearance" | "security" | "system";
 
 const tabs: { id: SettingsTab; label: string; icon: any; group: string }[] = [
   { id: "ai-training", label: "AI Training & Agent", icon: Brain, group: "AI & Data" },
   { id: "dataset", label: "Labeled Datasets", icon: Database, group: "AI & Data" },
   { id: "models", label: "Model Management", icon: Cpu, group: "AI & Data" },
+  { id: "mri-pipeline", label: "MRI Pipeline (Phase II)", icon: Layers, group: "AI & Data" },
   { id: "profile", label: "Doctor Profile", icon: User, group: "General" },
   { id: "notifications", label: "Notifications", icon: Bell, group: "General" },
   { id: "appearance", label: "Appearance", icon: Palette, group: "General" },
@@ -418,15 +419,35 @@ export default function SettingsPage() {
                     <Cpu className="w-4 h-4 text-primary" />
                     <p className="text-sm font-medium">Active Models</p>
                   </div>
-                  <div className="grid grid-cols-3 gap-3 mb-4">
+                  <p className="section-header mb-3">X-Ray Models (Phase I — Ensemble + Majority Voting)</p>
+                  <div className="grid grid-cols-3 gap-3 mb-6">
                     {[
-                      { name: "DenseNet201", task: "Classification", accuracy: "94.2%", status: "active" },
-                      { name: "ViT-B/16", task: "Global Analysis", accuracy: "92.8%", status: "active" },
-                      { name: "ResNet50", task: "Baseline", accuracy: "89.5%", status: "standby" },
+                      { name: "DenseNet201", task: "Detailed Classification", accuracy: "94.2%", status: "active" },
+                      { name: "ViT-B/16", task: "Global Context Analysis", accuracy: "92.8%", status: "active" },
+                      { name: "ResNet50", task: "Baseline Comparison", accuracy: "89.5%", status: "standby" },
                     ].map(model => (
                       <div key={model.name} className={`p-4 rounded-lg border ${model.status === "active" ? "border-primary/30 bg-primary-muted/30" : ""}`}>
                         <div className="flex items-center justify-between mb-2">
                           <p className="text-sm font-medium">{model.name}</p>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                            model.status === "active" ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
+                          }`}>{model.status}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">{model.task}</p>
+                        <p className="text-xs mt-1">Accuracy: <span className="font-medium">{model.accuracy}</span></p>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="section-header mb-3">MRI Models (Phase II — Swin-UNet + Classifier)</p>
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      { name: "Swin-UNet + DenseNet201", task: "Artifact Removal + Classification", accuracy: "93.5%", status: "active" },
+                      { name: "Swin-UNet + ViT-B/16", task: "Artifact Removal + Global Analysis", accuracy: "91.7%", status: "active" },
+                      { name: "Swin-UNet + ResNet50", task: "Artifact Removal + Baseline", accuracy: "88.2%", status: "standby" },
+                    ].map(model => (
+                      <div key={model.name} className={`p-4 rounded-lg border ${model.status === "active" ? "border-primary/30 bg-primary-muted/30" : ""}`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-[11px] font-medium">{model.name}</p>
                           <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
                             model.status === "active" ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
                           }`}>{model.status}</span>
@@ -494,6 +515,136 @@ export default function SettingsPage() {
                     <RefreshCw className="w-4 h-4" />
                     Start Training Run
                   </button>
+                </div>
+              </>
+            )}
+
+            {/* MRI Pipeline (Phase II) */}
+            {activeTab === "mri-pipeline" && (
+              <>
+                <div className="card-clinical">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Layers className="w-4 h-4 text-primary" />
+                    <p className="text-sm font-medium">MRI Artifact Removal & Enhancement Pipeline</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-4">
+                    Three-stage framework for removing motion blur and stripe artifacts from real-world MRI scans,
+                    preserving critical pathological structures for downstream diagnosis.
+                  </p>
+                  <div className="space-y-4">
+                    <div className="p-4 rounded-lg border border-primary/20 bg-primary-muted/10">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-[10px] font-bold">1</div>
+                        <p className="text-sm font-medium">Pre-training: Image Restoration</p>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-success/10 text-success font-medium ml-auto">Trained</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mb-3">Swin-UNet trained on KMAR-50K dataset to learn deep feature reconstruction from corrupted MRI inputs.</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[{ l: "Architecture", v: "Swin-UNet" }, { l: "Training Data", v: "KMAR-50K" }, { l: "Samples", v: "50,000" }].map(s => (
+                          <div key={s.l} className="p-2 rounded bg-background border text-center">
+                            <p className="text-[10px] text-muted-foreground">{s.l}</p>
+                            <p className="text-xs font-medium">{s.v}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="p-4 rounded-lg border border-primary/20 bg-primary-muted/10">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-[10px] font-bold">2</div>
+                        <p className="text-sm font-medium">Enhancement: Artifact Removal</p>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-success/10 text-success font-medium ml-auto">Active</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mb-3">Raw SKM-TEA images passed through Swin-UNet to remove motion blur and stripe artifacts while preserving pathology.</p>
+                      <div className="grid grid-cols-4 gap-2">
+                        {[{ l: "Input", v: "Raw SKM-TEA" }, { l: "Output", v: "Cleaned MRI" }, { l: "Avg Quality", v: "88.3%", c: "text-success" }, { l: "Processed", v: "744 images" }].map(s => (
+                          <div key={s.l} className="p-2 rounded bg-background border text-center">
+                            <p className="text-[10px] text-muted-foreground">{s.l}</p>
+                            <p className={`text-xs font-medium ${s.c || ""}`}>{s.v}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="p-4 rounded-lg border border-primary/20 bg-primary-muted/10">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-[10px] font-bold">3</div>
+                        <p className="text-sm font-medium">Downstream Diagnosis: Classification</p>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-success/10 text-success font-medium ml-auto">Active</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mb-3">Cleaned SKM-TEA data trains high-precision classifiers. Artifact removal improves soft-tissue lesion detection.</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[{ l: "Classifier", v: "DenseNet201" }, { l: "MRI Accuracy", v: "93.5%" }, { l: "Improvement", v: "+6.2% vs raw", c: "text-success" }].map(s => (
+                          <div key={s.l} className="p-2 rounded bg-background border text-center">
+                            <p className="text-[10px] text-muted-foreground">{s.l}</p>
+                            <p className={`text-xs font-medium ${s.c || ""}`}>{s.v}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="card-clinical">
+                  <p className="text-sm font-medium mb-4">Pipeline Configuration</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Restoration Model</label>
+                      <select defaultValue="swin-unet" className="w-full px-3 py-2 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/20">
+                        <option value="swin-unet">Swin-UNet</option>
+                        <option value="unet">Standard U-Net</option>
+                        <option value="restormer">Restormer</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Pre-training Dataset</label>
+                      <select defaultValue="kmar50k" className="w-full px-3 py-2 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/20">
+                        <option value="kmar50k">KMAR-50K (Recommended)</option>
+                        <option value="custom">Custom Dataset</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Target Dataset</label>
+                      <select defaultValue="skm-tea" className="w-full px-3 py-2 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/20">
+                        <option value="skm-tea">SKM-TEA</option>
+                        <option value="fastmri">fastMRI</option>
+                        <option value="custom">Custom</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Quality Threshold</label>
+                      <input defaultValue="75" className="w-full px-3 py-2 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Artifact Types</label>
+                      <select defaultValue="all" className="w-full px-3 py-2 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/20">
+                        <option value="all">All (Motion Blur + Stripe)</option>
+                        <option value="motion">Motion Blur Only</option>
+                        <option value="stripe">Stripe Artifacts Only</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Swin Window Size</label>
+                      <input defaultValue="8" className="w-full px-3 py-2 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="card-clinical">
+                  <p className="text-sm font-medium mb-4">Research Contributions & Novelty</p>
+                  <div className="space-y-3">
+                    {[
+                      { title: "Cross-Dataset Synergy", desc: "Leveraging large-scale artifact data (KMAR-50K) to improve specialized diagnostic performance on SKM-TEA." },
+                      { title: "Clinical Transparency", desc: "Combining Ensemble Learning with Grad-CAM visualization to build physician trust." },
+                      { title: "Dual-Modality Integration", desc: "Comprehensive framework: bone-level X-ray analysis (Phase I) + soft-tissue MRI complexity (Phase II)." },
+                    ].map(item => (
+                      <div key={item.title} className="p-3 rounded-lg border">
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className="w-2 h-2 rounded-full bg-primary" />
+                          <p className="text-sm font-medium">{item.title}</p>
+                        </div>
+                        <p className="text-xs text-muted-foreground">{item.desc}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </>
             )}

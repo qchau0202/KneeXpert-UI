@@ -1,17 +1,29 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, ZoomIn, ZoomOut, Move, RotateCcw, Check, X, Sun, Contrast, Maximize2, Crosshair, Ruler, Layers, Upload, Image } from "lucide-react";
+import { ArrowLeft, Check, X, Sun, Contrast, Maximize2, Layers, Upload, Image } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { mockPatients } from "@/data/patients";
+import { mockPatients, type Modality } from "@/data/patients";
 import { GradeBadge } from "@/components/GradeBadge";
 import { ConfidenceGauge } from "@/components/ConfidenceGauge";
 import { StatusBadge } from "@/components/StatusBadge";
+import { DiagnosticsToolbar } from "@/components/diagnostics/DiagnosticsToolbar";
+import { MriPipelinePanel } from "@/components/diagnostics/MriPipelinePanel";
 
-const models = [
+const xrayModels = [
+  { id: "ensemble", name: "Ensemble (Majority Vote)", description: "ResNet50 + DenseNet201 + VGG-19", accuracy: "95.1%" },
   { id: "densenet", name: "DenseNet201", description: "Detailed classification", accuracy: "94.2%" },
   { id: "vit", name: "ViT-B/16", description: "Global context analysis", accuracy: "92.8%" },
   { id: "resnet", name: "ResNet50", description: "Baseline comparison", accuracy: "89.5%" },
 ];
+
+const mriModels = [
+  { id: "swin-densenet", name: "Swin-UNet + DenseNet201", description: "Artifact removal + classification", accuracy: "93.5%" },
+  { id: "swin-vit", name: "Swin-UNet + ViT-B/16", description: "Artifact removal + global analysis", accuracy: "91.7%" },
+  { id: "swin-resnet", name: "Swin-UNet + ResNet50", description: "Artifact removal + baseline", accuracy: "88.2%" },
+];
+
+const xrayViews = ["AP", "Lateral"];
+const mriViews = ["Sagittal", "Coronal", "Axial"];
 
 export default function DiagnosticsPage() {
   const navigate = useNavigate();
@@ -19,24 +31,31 @@ export default function DiagnosticsPage() {
   const patientId = searchParams.get("patient") || "PT-8842";
   const patient = mockPatients.find((p) => p.id === patientId) || mockPatients[0];
 
-  const [activeModel, setActiveModel] = useState("densenet");
+  const [activeModality, setActiveModality] = useState<Modality>(patient.modality);
+  const models = activeModality === "xray" ? xrayModels : mriModels;
+  const views = activeModality === "xray" ? xrayViews : mriViews;
+
+  const [activeModel, setActiveModel] = useState(models[0].id);
   const [showGradCAM, setShowGradCAM] = useState(true);
   const [brightness, setBrightness] = useState(100);
   const [contrast, setContrast] = useState(100);
   const [zoom, setZoom] = useState(100);
-  const [activeTool, setActiveTool] = useState<string>("pan");
+  const [activeTool, setActiveTool] = useState("pan");
   const [overrideGrade, setOverrideGrade] = useState<number | null>(null);
   const [showOverridePanel, setShowOverridePanel] = useState(false);
   const [overrideNotes, setOverrideNotes] = useState("");
   const [gradcamOpacity, setGradcamOpacity] = useState(70);
-  const [selectedView, setSelectedView] = useState<"ap" | "lateral">("ap");
+  const [selectedView, setSelectedView] = useState(views[0]);
 
-  const tools = [
-    { id: "pan", icon: Move, label: "Pan" },
-    { id: "zoom", icon: ZoomIn, label: "Zoom" },
-    { id: "measure", icon: Ruler, label: "Measure" },
-    { id: "annotate", icon: Crosshair, label: "Annotate" },
-  ];
+  const currentScan = patient.scans.find(s => s.modality === activeModality && s.view === selectedView) || patient.scans[0];
+
+  const handleModalitySwitch = (mod: Modality) => {
+    setActiveModality(mod);
+    const newModels = mod === "xray" ? xrayModels : mriModels;
+    setActiveModel(newModels[0].id);
+    const newViews = mod === "xray" ? xrayViews : mriViews;
+    setSelectedView(newViews[0]);
+  };
 
   return (
     <motion.div
@@ -60,6 +79,29 @@ export default function DiagnosticsPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* Modality Switcher */}
+          <div className="flex items-center gap-0.5 bg-muted rounded-lg p-0.5 mr-2">
+            <button
+              onClick={() => handleModalitySwitch("xray")}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                activeModality === "xray"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              X-Ray
+            </button>
+            <button
+              onClick={() => handleModalitySwitch("mri")}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                activeModality === "mri"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              MRI
+            </button>
+          </div>
           <StatusBadge status={patient.status} />
           {patient.grade !== null && (
             <div className="flex items-center gap-2 ml-3">
@@ -74,67 +116,32 @@ export default function DiagnosticsPage() {
       {/* Workspace */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left Toolbar */}
-        <div className="w-12 border-r bg-muted/20 flex flex-col items-center py-3 gap-1">
-          {tools.map(tool => (
-            <button
-              key={tool.id}
-              onClick={() => setActiveTool(tool.id)}
-              className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${
-                activeTool === tool.id
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              }`}
-              title={tool.label}
-            >
-              <tool.icon className="w-4 h-4" />
-            </button>
-          ))}
-          <div className="w-6 h-px bg-border my-2" />
-          <button
-            onClick={() => setZoom(Math.min(200, zoom + 25))}
-            className="w-9 h-9 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-all"
-            title="Zoom In"
-          >
-            <ZoomIn className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => setZoom(Math.max(50, zoom - 25))}
-            className="w-9 h-9 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-all"
-            title="Zoom Out"
-          >
-            <ZoomOut className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => { setZoom(100); setBrightness(100); setContrast(100); }}
-            className="w-9 h-9 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-all"
-            title="Reset"
-          >
-            <RotateCcw className="w-4 h-4" />
-          </button>
-        </div>
+        <DiagnosticsToolbar
+          activeTool={activeTool}
+          setActiveTool={setActiveTool}
+          zoom={zoom}
+          setZoom={setZoom}
+          setBrightness={setBrightness}
+          setContrast={setContrast}
+        />
 
         {/* Left: Original Image */}
         <div className="flex-1 border-r flex flex-col">
           <div className="h-10 border-b flex items-center justify-between px-4">
             <div className="flex items-center gap-2">
-              <span className="section-header">Original Scan</span>
+              <span className="section-header">Original {activeModality === "xray" ? "X-Ray" : "MRI"} Scan</span>
               <div className="flex items-center gap-0.5 bg-muted rounded-md p-0.5 ml-2">
-                <button
-                  onClick={() => setSelectedView("ap")}
-                  className={`px-2 py-0.5 rounded text-[10px] font-medium transition-all ${
-                    selectedView === "ap" ? "bg-background text-foreground shadow-ring-light" : "text-muted-foreground"
-                  }`}
-                >
-                  AP View
-                </button>
-                <button
-                  onClick={() => setSelectedView("lateral")}
-                  className={`px-2 py-0.5 rounded text-[10px] font-medium transition-all ${
-                    selectedView === "lateral" ? "bg-background text-foreground shadow-ring-light" : "text-muted-foreground"
-                  }`}
-                >
-                  Lateral
-                </button>
+                {views.map(view => (
+                  <button
+                    key={view}
+                    onClick={() => setSelectedView(view)}
+                    className={`px-2 py-0.5 rounded text-[10px] font-medium transition-all ${
+                      selectedView === view ? "bg-background text-foreground shadow-ring-light" : "text-muted-foreground"
+                    }`}
+                  >
+                    {view}
+                  </button>
+                ))}
               </div>
             </div>
             <span className="text-mono text-[10px] text-muted-foreground">{zoom}% · {activeTool}</span>
@@ -148,12 +155,12 @@ export default function DiagnosticsPage() {
                 <Image className="w-8 h-8 text-muted-foreground" />
               </div>
               <div className="text-center">
-                <p className="text-sm font-medium">{selectedView === "ap" ? "AP" : "Lateral"} Knee X-ray</p>
+                <p className="text-sm font-medium">{selectedView} {activeModality === "xray" ? "Knee X-ray" : "Knee MRI"}</p>
                 <p className="text-xs text-muted-foreground mt-0.5">Drag & drop or click to upload</p>
               </div>
               <button className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors">
                 <Upload className="w-3 h-3 inline mr-1" />
-                Upload DICOM
+                Upload {activeModality === "xray" ? "DICOM" : "MRI DICOM"}
               </button>
             </div>
           </div>
@@ -162,26 +169,21 @@ export default function DiagnosticsPage() {
           <div className="h-12 border-t flex items-center gap-4 px-4 bg-muted/20">
             <div className="flex items-center gap-2">
               <Sun className="w-3.5 h-3.5 text-muted-foreground" />
-              <input
-                type="range" min="50" max="150" value={brightness}
-                onChange={e => setBrightness(parseInt(e.target.value))}
-                className="w-20 accent-primary h-1"
-              />
+              <input type="range" min="50" max="150" value={brightness} onChange={e => setBrightness(parseInt(e.target.value))} className="w-20 accent-primary h-1" />
               <span className="text-mono text-[10px] text-muted-foreground w-8">{brightness}%</span>
             </div>
             <div className="flex items-center gap-2">
               <Contrast className="w-3.5 h-3.5 text-muted-foreground" />
-              <input
-                type="range" min="50" max="150" value={contrast}
-                onChange={e => setContrast(parseInt(e.target.value))}
-                className="w-20 accent-primary h-1"
-              />
+              <input type="range" min="50" max="150" value={contrast} onChange={e => setContrast(parseInt(e.target.value))} className="w-20 accent-primary h-1" />
               <span className="text-mono text-[10px] text-muted-foreground w-8">{contrast}%</span>
             </div>
             <button className="ml-auto p-1.5 rounded hover:bg-muted transition-colors" title="Fullscreen">
               <Maximize2 className="w-3.5 h-3.5 text-muted-foreground" />
             </button>
           </div>
+
+          {/* MRI Pipeline Panel (only for MRI modality) */}
+          {activeModality === "mri" && <MriPipelinePanel scan={currentScan} />}
         </div>
 
         {/* Right: AI Output */}
@@ -190,6 +192,11 @@ export default function DiagnosticsPage() {
             <div className="flex items-center gap-2">
               <span className="section-header">AI Analysis</span>
               <Layers className="w-3.5 h-3.5 text-muted-foreground" />
+              {activeModality === "mri" && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                  Enhanced (Artifact-Free)
+                </span>
+              )}
             </div>
             {/* Model Switcher */}
             <div className="flex items-center gap-0.5 bg-muted rounded-lg p-0.5">
@@ -197,13 +204,13 @@ export default function DiagnosticsPage() {
                 <button
                   key={model.id}
                   onClick={() => setActiveModel(model.id)}
-                  className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all duration-200 ease-clinical ${
+                  className={`px-2 py-1 rounded-md text-[10px] font-medium transition-all duration-200 ${
                     activeModel === model.id
                       ? "bg-background text-foreground shadow-ring-light"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  {model.name}
+                  {model.name.length > 20 ? model.name.split(" ").slice(0, 2).join(" ") : model.name}
                 </button>
               ))}
             </div>
@@ -228,6 +235,9 @@ export default function DiagnosticsPage() {
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {models.find(m => m.id === activeModel)?.name} · {models.find(m => m.id === activeModel)?.accuracy}
                 </p>
+                {activeModality === "mri" && (
+                  <p className="text-[10px] text-primary mt-1">Post artifact removal · SKM-TEA pipeline</p>
+                )}
               </div>
             </motion.div>
 
@@ -244,20 +254,20 @@ export default function DiagnosticsPage() {
               {showGradCAM && (
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] text-muted-foreground">Opacity</span>
-                  <input
-                    type="range" min="10" max="100" value={gradcamOpacity}
-                    onChange={e => setGradcamOpacity(parseInt(e.target.value))}
-                    className="w-16 accent-primary h-1"
-                  />
+                  <input type="range" min="10" max="100" value={gradcamOpacity} onChange={e => setGradcamOpacity(parseInt(e.target.value))} className="w-16 accent-primary h-1" />
                   <span className="text-mono text-[10px] text-muted-foreground w-6">{gradcamOpacity}%</span>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Model Info */}
+          {/* Model & Pipeline Info */}
           <div className="px-4 py-2 border-t bg-muted/20">
-            <div className="flex items-center gap-4 text-[11px]">
+            <div className="flex items-center gap-4 text-[11px] flex-wrap">
+              <div>
+                <span className="text-muted-foreground">Pipeline: </span>
+                <span className="font-medium">{activeModality === "xray" ? "X-Ray (Phase I)" : "MRI (Phase II)"}</span>
+              </div>
               <div>
                 <span className="text-muted-foreground">Model: </span>
                 <span className="font-medium">{models.find(m => m.id === activeModel)?.name}</span>
@@ -266,14 +276,30 @@ export default function DiagnosticsPage() {
                 <span className="text-muted-foreground">Accuracy: </span>
                 <span className="font-medium">{models.find(m => m.id === activeModel)?.accuracy}</span>
               </div>
-              <div>
-                <span className="text-muted-foreground">Inference: </span>
-                <span className="font-medium">1.2s</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Pre-processing: </span>
-                <span className="font-medium">CLAHE + Denoise</span>
-              </div>
+              {activeModality === "xray" && (
+                <>
+                  <div>
+                    <span className="text-muted-foreground">Strategy: </span>
+                    <span className="font-medium">Ensemble + Majority Voting</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Pre-processing: </span>
+                    <span className="font-medium">CLAHE + Denoise</span>
+                  </div>
+                </>
+              )}
+              {activeModality === "mri" && (
+                <>
+                  <div>
+                    <span className="text-muted-foreground">Restoration: </span>
+                    <span className="font-medium">Swin-UNet (KMAR-50K)</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Target: </span>
+                    <span className="font-medium">SKM-TEA (Cleaned)</span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -285,6 +311,11 @@ export default function DiagnosticsPage() {
                 <span className="font-medium">Grade {patient.grade ?? "—"} Osteoarthritis</span>
                 {patient.aiConfidence && (
                   <span className="text-muted-foreground ml-1">({patient.aiConfidence}%)</span>
+                )}
+                {activeModality === "mri" && (
+                  <span className="text-[10px] ml-2 px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                    Soft-tissue analysis
+                  </span>
                 )}
               </div>
               <div className="flex items-center gap-2">
@@ -326,12 +357,23 @@ export default function DiagnosticsPage() {
                     </button>
                   ))}
                 </div>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-xs text-muted-foreground">Modality:</span>
+                  <span className="text-xs px-2 py-0.5 rounded bg-muted font-medium">
+                    {activeModality === "xray" ? "X-Ray" : "MRI"}
+                  </span>
+                  <span className="text-xs text-muted-foreground ml-2">View:</span>
+                  <span className="text-xs px-2 py-0.5 rounded bg-muted font-medium">{selectedView}</span>
+                </div>
                 <textarea
                   value={overrideNotes}
                   onChange={e => setOverrideNotes(e.target.value)}
                   placeholder="Clinical reasoning for override (required for retraining data)..."
                   className="w-full px-3 py-2 rounded-lg border bg-background text-sm resize-none h-16 focus:outline-none focus:ring-2 focus:ring-ring/20"
                 />
+                <p className="text-[10px] text-muted-foreground mt-1.5">
+                  This override will be flagged for model retraining. {activeModality === "mri" ? "MRI data will improve Swin-UNet artifact removal and downstream classification." : "X-ray data will be added to the ensemble training set."}
+                </p>
                 <div className="flex justify-end mt-2 gap-2">
                   <button onClick={() => setShowOverridePanel(false)} className="px-3 py-1.5 text-xs rounded-lg border hover:bg-muted transition-colors">Cancel</button>
                   <button className="px-3 py-1.5 text-xs rounded-lg bg-warning text-warning-foreground hover:bg-warning/90 transition-colors">

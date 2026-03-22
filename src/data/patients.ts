@@ -1,3 +1,23 @@
+export type Modality = "xray" | "mri";
+
+export interface ScanEntry {
+  id: string;
+  modality: Modality;
+  date: string;
+  view?: string; // AP, Lateral, Sagittal, Coronal, Axial
+  region: string;
+  grade: number | null;
+  aiConfidence: number | null;
+  modelUsed: string;
+  artifactRemoval?: {
+    applied: boolean;
+    method: string; // "Swin-UNet" | "none"
+    dataset: string; // "KMAR-50K" | "N/A"
+    qualityScore: number; // 0-100 post-enhancement quality
+  };
+  preprocessing: string[];
+}
+
 export interface Patient {
   id: string;
   name: string;
@@ -11,6 +31,8 @@ export interface Patient {
   aiConfidence: number | null;
   lastVisit: string;
   status: "pending" | "analyzed" | "confirmed" | "flagged";
+  modality: Modality;
+  scans: ScanEntry[];
   timeline: TimelineEntry[];
 }
 
@@ -36,6 +58,19 @@ export const mockPatients: Patient[] = [
     aiConfidence: 94.2,
     lastVisit: "2026-03-15",
     status: "confirmed",
+    modality: "xray",
+    scans: [
+      {
+        id: "SCN-8842-01", modality: "xray", date: "2026-03-15", view: "AP", region: "Bilateral Knee",
+        grade: 3, aiConfidence: 94.2, modelUsed: "DenseNet201 (Ensemble)",
+        preprocessing: ["CLAHE", "Denoise", "Normalization"],
+      },
+      {
+        id: "SCN-8842-02", modality: "xray", date: "2025-09-10", view: "AP", region: "Bilateral Knee",
+        grade: 2, aiConfidence: 88.1, modelUsed: "DenseNet201 (Ensemble)",
+        preprocessing: ["CLAHE", "Denoise"],
+      },
+    ],
     timeline: [
       { date: "2026-03-15", type: "scan", summary: "Bilateral AP knee X-ray uploaded" },
       { date: "2026-03-15", type: "diagnosis", summary: "AI Classification: Grade 3 OA (94.2%)", grade: 3, confidence: 94.2 },
@@ -57,9 +92,24 @@ export const mockPatients: Patient[] = [
     aiConfidence: 87.6,
     lastVisit: "2026-03-14",
     status: "analyzed",
+    modality: "mri",
+    scans: [
+      {
+        id: "SCN-7291-01", modality: "mri", date: "2026-03-14", view: "Sagittal", region: "Right Knee",
+        grade: 2, aiConfidence: 87.6, modelUsed: "Swin-UNet + DenseNet201",
+        artifactRemoval: { applied: true, method: "Swin-UNet", dataset: "KMAR-50K", qualityScore: 92 },
+        preprocessing: ["Artifact Removal (Swin-UNet)", "CLAHE", "Normalization"],
+      },
+      {
+        id: "SCN-7291-02", modality: "mri", date: "2026-03-14", view: "Coronal", region: "Right Knee",
+        grade: 2, aiConfidence: 85.3, modelUsed: "Swin-UNet + ViT-B/16",
+        artifactRemoval: { applied: true, method: "Swin-UNet", dataset: "KMAR-50K", qualityScore: 89 },
+        preprocessing: ["Artifact Removal (Swin-UNet)", "Denoise", "Normalization"],
+      },
+    ],
     timeline: [
-      { date: "2026-03-14", type: "scan", summary: "Right knee AP X-ray uploaded" },
-      { date: "2026-03-14", type: "diagnosis", summary: "AI Classification: Grade 2 OA (87.6%)", grade: 2, confidence: 87.6 },
+      { date: "2026-03-14", type: "scan", summary: "Right knee MRI (Sagittal + Coronal) uploaded" },
+      { date: "2026-03-14", type: "diagnosis", summary: "AI Classification: Grade 2 OA (87.6%) — MRI artifact removal applied", grade: 2, confidence: 87.6 },
     ],
   },
   {
@@ -75,6 +125,19 @@ export const mockPatients: Patient[] = [
     aiConfidence: 97.8,
     lastVisit: "2026-03-12",
     status: "confirmed",
+    modality: "xray",
+    scans: [
+      {
+        id: "SCN-6105-01", modality: "xray", date: "2026-03-12", view: "AP", region: "Right Knee",
+        grade: 4, aiConfidence: 97.8, modelUsed: "DenseNet201 (Ensemble)",
+        preprocessing: ["CLAHE", "Denoise", "Normalization"],
+      },
+      {
+        id: "SCN-6105-02", modality: "xray", date: "2026-03-12", view: "Lateral", region: "Right Knee",
+        grade: 4, aiConfidence: 96.5, modelUsed: "DenseNet201 (Ensemble)",
+        preprocessing: ["CLAHE", "Denoise"],
+      },
+    ],
     timeline: [
       { date: "2026-03-12", type: "scan", summary: "Right knee AP & lateral X-ray uploaded" },
       { date: "2026-03-12", type: "diagnosis", summary: "AI Classification: Grade 4 OA (97.8%)", grade: 4, confidence: 97.8 },
@@ -94,9 +157,24 @@ export const mockPatients: Patient[] = [
     aiConfidence: 72.3,
     lastVisit: "2026-03-10",
     status: "flagged",
+    modality: "mri",
+    scans: [
+      {
+        id: "SCN-5530-01", modality: "mri", date: "2026-03-10", view: "Sagittal", region: "Bilateral Knee",
+        grade: 1, aiConfidence: 72.3, modelUsed: "Swin-UNet + ViT-B/16",
+        artifactRemoval: { applied: true, method: "Swin-UNet", dataset: "KMAR-50K", qualityScore: 78 },
+        preprocessing: ["Artifact Removal (Swin-UNet)", "CLAHE", "Denoise"],
+      },
+      {
+        id: "SCN-5530-02", modality: "mri", date: "2026-03-10", view: "Axial", region: "Bilateral Knee",
+        grade: 1, aiConfidence: 68.9, modelUsed: "Swin-UNet + DenseNet201",
+        artifactRemoval: { applied: true, method: "Swin-UNet", dataset: "KMAR-50K", qualityScore: 74 },
+        preprocessing: ["Artifact Removal (Swin-UNet)", "Normalization"],
+      },
+    ],
     timeline: [
-      { date: "2026-03-10", type: "scan", summary: "Bilateral knee X-ray uploaded" },
-      { date: "2026-03-10", type: "diagnosis", summary: "AI Classification: Grade 1 OA (72.3%)", grade: 1, confidence: 72.3 },
+      { date: "2026-03-10", type: "scan", summary: "Bilateral knee MRI uploaded" },
+      { date: "2026-03-10", type: "diagnosis", summary: "AI Classification: Grade 1 OA (72.3%) — MRI pipeline", grade: 1, confidence: 72.3 },
       { date: "2026-03-10", type: "note", summary: "Flagged: Low confidence. Doctor review pending." },
     ],
   },
@@ -113,6 +191,14 @@ export const mockPatients: Patient[] = [
     aiConfidence: null,
     lastVisit: "2026-03-17",
     status: "pending",
+    modality: "xray",
+    scans: [
+      {
+        id: "SCN-4417-01", modality: "xray", date: "2026-03-17", view: "AP", region: "Bilateral Knee",
+        grade: null, aiConfidence: null, modelUsed: "Pending",
+        preprocessing: [],
+      },
+    ],
     timeline: [
       { date: "2026-03-17", type: "scan", summary: "Bilateral AP knee X-ray uploaded. Awaiting analysis." },
     ],
