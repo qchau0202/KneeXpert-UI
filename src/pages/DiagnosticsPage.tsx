@@ -325,7 +325,7 @@ export default function DiagnosticsPage() {
                   <div className="space-y-3">
                     {stages.map((stage, i) => {
                       const isCompleted = stagesCompleted.includes(stage.id);
-                      const isCurrent = i === currentStageIndex && diagnosticStage !== "complete";
+                      const isCurrent = i === currentStageIndex && diagnosticStage !== ("complete" as DiagnosticStage);
                       const isPending = !isCompleted && !isCurrent;
 
                       return (
