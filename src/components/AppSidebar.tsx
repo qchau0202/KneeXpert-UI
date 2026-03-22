@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { LayoutDashboard, Users, Scan, FileText, Settings, ChevronLeft, ChevronRight, Activity } from "lucide-react";
+import { LayoutDashboard, Users, Scan, FileText, Settings, Menu, X, Activity, User, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
@@ -12,19 +14,13 @@ const navItems = [
   { icon: Settings, label: "Settings", path: "/settings" },
 ];
 
-export function AppSidebar() {
-  const [collapsed, setCollapsed] = useState(false);
+function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
   const location = useLocation();
 
   return (
-    <motion.aside
-      initial={false}
-      animate={{ width: collapsed ? 64 : 220 }}
-      transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
-      className="h-screen flex flex-col bg-sidebar border-r border-sidebar-border sticky top-0 overflow-hidden"
-    >
+    <div className="flex flex-col h-full">
       {/* Logo */}
-      <div className="h-14 flex items-center px-4 gap-3 border-b border-sidebar-border">
+      <div className="h-14 flex items-center px-4 gap-3 border-b border-sidebar-border flex-shrink-0">
         <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center flex-shrink-0">
           <Activity className="w-4 h-4 text-primary-foreground" />
         </div>
@@ -45,12 +41,13 @@ export function AppSidebar() {
           Workspace
         </span>
         {navItems.map((item) => {
-          const isActive = location.pathname === item.path || 
+          const isActive = location.pathname === item.path ||
             (item.path !== "/" && location.pathname.startsWith(item.path));
           return (
             <NavLink
               key={item.path}
               to={item.path}
+              onClick={onNavigate}
               className={cn(
                 "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors duration-150",
                 isActive
@@ -65,13 +62,69 @@ export function AppSidebar() {
         })}
       </nav>
 
+      {/* User section */}
+      <div className="border-t border-sidebar-border p-3 flex-shrink-0">
+        <div className={cn("flex items-center gap-3", collapsed && "justify-center")}>
+          <div className="w-8 h-8 rounded-full bg-sidebar-accent flex items-center justify-center flex-shrink-0">
+            <User className="w-4 h-4 text-sidebar-accent-foreground" />
+          </div>
+          {!collapsed && (
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium text-sidebar-accent-foreground truncate">Dr. Châu Nguyễn</p>
+              <p className="text-[10px] text-sidebar-foreground truncate">Radiologist</p>
+            </div>
+          )}
+          {!collapsed && (
+            <button className="text-sidebar-foreground hover:text-sidebar-accent-foreground transition-colors p-1 rounded-md hover:bg-sidebar-accent/50">
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function AppSidebar() {
+  const [collapsed, setCollapsed] = useState(false);
+  const isMobile = useIsMobile();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  if (isMobile) {
+    return (
+      <>
+        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+          <SheetContent side="left" className="w-[260px] p-0 bg-sidebar border-sidebar-border">
+            <SheetTitle className="sr-only">Navigation</SheetTitle>
+            <SidebarContent collapsed={false} onNavigate={() => setMobileOpen(false)} />
+          </SheetContent>
+        </Sheet>
+      </>
+    );
+  }
+
+  return (
+    <motion.aside
+      initial={false}
+      animate={{ width: collapsed ? 64 : 220 }}
+      transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
+      className="h-screen flex flex-col bg-sidebar border-r border-sidebar-border sticky top-0 overflow-hidden flex-shrink-0"
+    >
+      <SidebarContent collapsed={collapsed} />
       {/* Collapse toggle */}
       <button
         onClick={() => setCollapsed(!collapsed)}
         className="h-10 flex items-center justify-center border-t border-sidebar-border text-sidebar-foreground hover:text-sidebar-accent-foreground transition-colors"
       >
-        {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+        {collapsed ? <Menu className="w-4 h-4" /> : <X className="w-4 h-4" />}
       </button>
     </motion.aside>
   );
+}
+
+export function MobileMenuTrigger() {
+  const isMobile = useIsMobile();
+  if (!isMobile) return null;
+  // This is a placeholder; actual trigger is handled via context below
+  return null;
 }
