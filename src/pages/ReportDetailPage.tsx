@@ -1,11 +1,13 @@
-import { motion } from "framer-motion";
-import { ArrowLeft, Download, Printer, Send, Edit3, TrendingUp, TrendingDown, Minus, Shield, Activity, Bone, Stethoscope, Calendar, ClipboardCheck, AlertCircle } from "lucide-react";
+import { useState, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { ArrowLeft, Download, Printer, Send, Edit3, TrendingUp, TrendingDown, Minus, Shield, Activity, Bone, Stethoscope, Calendar, ClipboardCheck, AlertCircle, X, Eye, FileText, Loader2 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { mockPatients } from "@/data/patients";
 import { GradeBadge } from "@/components/GradeBadge";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ConfidenceGauge } from "@/components/ConfidenceGauge";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from "recharts";
+import { getReportDataURL, downloadReportPDF } from "@/lib/generateReportPDF";
 
 const containerVariants = {
   hidden: { opacity: 0, y: 8 },
