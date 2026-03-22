@@ -525,11 +525,15 @@ export default function ReportDetailPage() {
       <div className="w-56 border-l bg-muted/30 p-4 space-y-3 flex-shrink-0">
         <p className="section-header mb-4">Quick Actions</p>
 
-        <button className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
-          <Download className="w-4 h-4" />
-          Export PDF
+        <button onClick={handlePreviewPdf} className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
+          <Eye className="w-4 h-4" />
+          Preview & Export PDF
         </button>
-        <button className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg border text-sm font-medium hover:bg-muted transition-colors">
+        <button onClick={handleDownloadPdf} className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg border text-sm font-medium hover:bg-muted transition-colors">
+          <Download className="w-4 h-4" />
+          Download PDF
+        </button>
+        <button onClick={handlePrintReport} className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg border text-sm font-medium hover:bg-muted transition-colors">
           <Printer className="w-4 h-4" />
           Print Report
         </button>
