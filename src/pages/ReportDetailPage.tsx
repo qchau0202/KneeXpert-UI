@@ -96,6 +96,75 @@ export default function ReportDetailPage() {
     }
   };
 
+  return (
+    <>
+    {/* PDF Preview Modal */}
+    <AnimatePresence>
+      {showPdfPreview && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          onClick={() => setShowPdfPreview(false)}
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            className="bg-background rounded-xl shadow-2xl border w-[90vw] h-[90vh] max-w-5xl flex flex-col overflow-hidden"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="h-14 border-b flex items-center justify-between px-5 flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <FileText className="w-5 h-5 text-primary" />
+                <div>
+                  <p className="text-sm font-medium">PDF Preview — {patient.name}</p>
+                  <p className="text-[10px] text-muted-foreground">{patient.id} · KneeXpert Clinical Report</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleDownloadPdf}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+                >
+                  <Download className="w-4 h-4" />
+                  Download PDF
+                </button>
+                <button
+                  onClick={handlePrintReport}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-medium hover:bg-muted transition-colors"
+                >
+                  <Printer className="w-4 h-4" />
+                  Print
+                </button>
+                <button
+                  onClick={() => setShowPdfPreview(false)}
+                  className="p-2 rounded-lg hover:bg-muted transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 bg-muted/30 p-4 overflow-auto flex justify-center">
+              {pdfLoading ? (
+                <div className="flex flex-col items-center justify-center gap-3">
+                  <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                  <p className="text-sm text-muted-foreground">Generating PDF report...</p>
+                </div>
+              ) : (
+                <iframe
+                  src={pdfDataUrl}
+                  className="w-full max-w-[800px] h-full rounded-lg border shadow-lg bg-white"
+                  title="PDF Preview"
+                />
+              )}
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+
     <div className="h-screen flex overflow-hidden">
       <div className="flex-1 overflow-auto">
         <motion.div variants={containerVariants} initial="hidden" animate="visible" className="max-w-[72ch] mx-auto py-10 px-6">
