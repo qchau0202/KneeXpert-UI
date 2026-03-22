@@ -15,12 +15,13 @@ const itemVariants = {
   visible: { opacity: 1, y: 0 },
 };
 
-type SettingsTab = "ai-training" | "dataset" | "models" | "profile" | "notifications" | "appearance" | "security" | "system";
+type SettingsTab = "ai-training" | "dataset" | "models" | "mri-pipeline" | "profile" | "notifications" | "appearance" | "security" | "system";
 
 const tabs: { id: SettingsTab; label: string; icon: any; group: string }[] = [
   { id: "ai-training", label: "AI Training & Agent", icon: Brain, group: "AI & Data" },
   { id: "dataset", label: "Labeled Datasets", icon: Database, group: "AI & Data" },
   { id: "models", label: "Model Management", icon: Cpu, group: "AI & Data" },
+  { id: "mri-pipeline", label: "MRI Pipeline (Phase II)", icon: Layers, group: "AI & Data" },
   { id: "profile", label: "Doctor Profile", icon: User, group: "General" },
   { id: "notifications", label: "Notifications", icon: Bell, group: "General" },
   { id: "appearance", label: "Appearance", icon: Palette, group: "General" },
