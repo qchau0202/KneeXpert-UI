@@ -1,3 +1,23 @@
+export type Modality = "xray" | "mri";
+
+export interface ScanEntry {
+  id: string;
+  modality: Modality;
+  date: string;
+  view?: string; // AP, Lateral, Sagittal, Coronal, Axial
+  region: string;
+  grade: number | null;
+  aiConfidence: number | null;
+  modelUsed: string;
+  artifactRemoval?: {
+    applied: boolean;
+    method: string; // "Swin-UNet" | "none"
+    dataset: string; // "KMAR-50K" | "N/A"
+    qualityScore: number; // 0-100 post-enhancement quality
+  };
+  preprocessing: string[];
+}
+
 export interface Patient {
   id: string;
   name: string;
@@ -11,6 +31,8 @@ export interface Patient {
   aiConfidence: number | null;
   lastVisit: string;
   status: "pending" | "analyzed" | "confirmed" | "flagged";
+  modality: Modality;
+  scans: ScanEntry[];
   timeline: TimelineEntry[];
 }
 
