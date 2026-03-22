@@ -68,7 +68,34 @@ export default function ReportDetailPage() {
 
   const currentKL = klCriteria.find(k => k.grade === patient.grade);
 
-  return (
+  // PDF Preview state
+  const [showPdfPreview, setShowPdfPreview] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfDataUrl, setPdfDataUrl] = useState<string>("");
+
+  const handlePreviewPdf = () => {
+    setPdfLoading(true);
+    setShowPdfPreview(true);
+    // Simulate slight delay for PDF generation
+    setTimeout(() => {
+      const dataUrl = getReportDataURL(patient);
+      setPdfDataUrl(dataUrl);
+      setPdfLoading(false);
+    }, 800);
+  };
+
+  const handleDownloadPdf = () => {
+    downloadReportPDF(patient);
+  };
+
+  const handlePrintReport = () => {
+    const dataUrl = getReportDataURL(patient);
+    const win = window.open(dataUrl, "_blank");
+    if (win) {
+      win.addEventListener("load", () => win.print());
+    }
+  };
+
     <div className="h-screen flex overflow-hidden">
       <div className="flex-1 overflow-auto">
         <motion.div variants={containerVariants} initial="hidden" animate="visible" className="max-w-[72ch] mx-auto py-10 px-6">
