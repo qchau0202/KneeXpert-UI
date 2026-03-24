@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Check, X, Sun, Contrast, Maximize2, Layers, Upload, Image, FileImage, Loader2, CheckCircle2, Brain, Sparkles, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Check, X, Sun, Contrast, Maximize2, Layers, Upload, Image, FileImage, Loader2, CheckCircle2, Brain, Sparkles, AlertTriangle, User, Calendar, Activity as ActivityIcon, ChevronRight } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { mockPatients, type Modality } from "@/data/patients";
 import { GradeBadge } from "@/components/GradeBadge";
