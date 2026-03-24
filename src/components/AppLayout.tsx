@@ -1,7 +1,7 @@
 import { ReactNode, createContext, useContext, useState } from "react";
 import { AppSidebar } from "./AppSidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Menu, Activity } from "lucide-react";
+import { Menu, Activity, Bell } from "lucide-react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { NavLink, useLocation } from "react-router-dom";
 import { LayoutDashboard, Users, Scan, FileText, Settings, User, LogOut } from "lucide-react";
