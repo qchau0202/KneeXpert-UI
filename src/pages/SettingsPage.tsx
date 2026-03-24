@@ -82,7 +82,7 @@ export default function SettingsPage() {
   const [dataValidation, setDataValidation] = useState(true);
 
   // Profile
-  const [doctorName, setDoctorName] = useState("Dr. Nguyễn Châu");
+  const [doctorName, setDoctorName] = useState("Dr. Quốc Châu");
   const [specialty, setSpecialty] = useState("Orthopedic Radiology");
   const [institution, setInstitution] = useState("Hanoi Medical University Hospital");
   const [email, setEmail] = useState("chau.nguyen@hmu.edu.vn");

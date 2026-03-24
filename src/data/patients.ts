@@ -74,7 +74,7 @@ export const mockPatients: Patient[] = [
     timeline: [
       { date: "2026-03-15", type: "scan", summary: "Bilateral AP knee X-ray uploaded" },
       { date: "2026-03-15", type: "diagnosis", summary: "AI Classification: Grade 3 OA (94.2%)", grade: 3, confidence: 94.2 },
-      { date: "2026-03-15", type: "note", summary: "Confirmed by Dr. Châu. Joint space narrowing noted." },
+      { date: "2026-03-15", type: "note", summary: "Confirmed by Dr. Quốc Châu. Joint space narrowing noted." },
       { date: "2025-09-10", type: "scan", summary: "Follow-up AP knee X-ray" },
       { date: "2025-09-10", type: "diagnosis", summary: "AI Classification: Grade 2 OA (88.1%)", grade: 2, confidence: 88.1 },
     ],
