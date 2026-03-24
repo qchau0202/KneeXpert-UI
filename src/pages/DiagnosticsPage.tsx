@@ -190,7 +190,7 @@ export default function DiagnosticsPage() {
       {/* Top bar */}
       <div className="h-14 border-b flex items-center justify-between px-5 flex-shrink-0">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate("/")} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
+          <button onClick={() => navigate("/patients")} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>

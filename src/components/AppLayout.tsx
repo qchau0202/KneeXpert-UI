@@ -55,13 +55,24 @@ function MobileSidebar({ open, onOpenChange }: { open: boolean; onOpenChange: (v
               );
             })}
           </nav>
+          {/* Notifications */}
+          <div className="px-2 pb-1">
+            <button className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors duration-150 w-full text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground">
+              <div className="relative flex-shrink-0">
+                <Bell className="w-4 h-4" />
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-destructive border-2 border-sidebar" />
+              </div>
+              <span>Notifications</span>
+              <span className="ml-auto text-[10px] font-medium bg-destructive text-destructive-foreground px-1.5 py-0.5 rounded-full">3</span>
+            </button>
+          </div>
           <div className="border-t border-sidebar-border p-3">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-sidebar-accent flex items-center justify-center">
                 <User className="w-4 h-4 text-sidebar-accent-foreground" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-sidebar-accent-foreground truncate">Dr. Châu Nguyễn</p>
+                <p className="text-xs font-medium text-sidebar-accent-foreground truncate">Dr. Quốc Châu</p>
                 <p className="text-[10px] text-sidebar-foreground truncate">Radiologist</p>
               </div>
               <button className="text-sidebar-foreground hover:text-sidebar-accent-foreground transition-colors p-1">
