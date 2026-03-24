@@ -74,6 +74,7 @@ export default function DiagnosticsPage() {
   const [selectedView, setSelectedView] = useState(views[0]);
 
   // Upload flow state
+  const [showPatientInfo, setShowPatientInfo] = useState(true);
   const [diagnosticStage, setDiagnosticStage] = useState<DiagnosticStage>("idle");
   const [uploadedFileName, setUploadedFileName] = useState<string>("");
   const [uploadProgress, setUploadProgress] = useState(0);
