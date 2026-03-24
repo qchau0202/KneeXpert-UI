@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { LayoutDashboard, Users, Scan, FileText, Settings, Menu, X, Activity, User, LogOut } from "lucide-react";
+import { LayoutDashboard, Users, Scan, FileText, Settings, Menu, X, Activity, User, LogOut, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { useIsMobile } from "@/hooks/use-mobile";
