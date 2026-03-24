@@ -54,7 +54,7 @@ const recentActivity = [
   { time: "10 min ago", action: "AI analysis completed", patient: "PT-8842", detail: "Grade 3 OA (94.2%)", type: "diagnosis" as const },
   { time: "25 min ago", action: "New scan uploaded", patient: "PT-4417", detail: "Bilateral AP knee X-ray", type: "scan" as const },
   { time: "1 hr ago", action: "Report exported", patient: "PT-6105", detail: "PDF sent to orthopedics", type: "report" as const },
-  { time: "2 hrs ago", action: "Grade confirmed", patient: "PT-7291", detail: "Dr. Châu confirmed Grade 2", type: "confirmed" as const },
+  { time: "2 hrs ago", action: "Grade confirmed", patient: "PT-7291", detail: "Dr. Quốc Châu confirmed Grade 2", type: "confirmed" as const },
   { time: "3 hrs ago", action: "Case flagged", patient: "PT-5530", detail: "Low confidence - review needed", type: "flagged" as const },
 ];
 

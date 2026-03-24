@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Check, X, Sun, Contrast, Maximize2, Layers, Upload, Image, FileImage, Loader2, CheckCircle2, Brain, Sparkles, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Check, X, Sun, Contrast, Maximize2, Layers, Upload, Image, FileImage, Loader2, CheckCircle2, Brain, Sparkles, AlertTriangle, User, Calendar, Activity as ActivityIcon, ChevronRight } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { mockPatients, type Modality } from "@/data/patients";
 import { GradeBadge } from "@/components/GradeBadge";
@@ -74,6 +74,7 @@ export default function DiagnosticsPage() {
   const [selectedView, setSelectedView] = useState(views[0]);
 
   // Upload flow state
+  const [showPatientInfo, setShowPatientInfo] = useState(true);
   const [diagnosticStage, setDiagnosticStage] = useState<DiagnosticStage>("idle");
   const [uploadedFileName, setUploadedFileName] = useState<string>("");
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -189,7 +190,7 @@ export default function DiagnosticsPage() {
       {/* Top bar */}
       <div className="h-14 border-b flex items-center justify-between px-5 flex-shrink-0">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate("/")} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
+          <button onClick={() => navigate("/patients")} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
@@ -222,6 +223,104 @@ export default function DiagnosticsPage() {
           )}
         </div>
       </div>
+
+      {/* Patient Info Panel */}
+      <AnimatePresence>
+        {showPatientInfo && diagnosticStage === "idle" && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="border-b bg-muted/30"
+          >
+            <div className="px-5 py-4">
+              <div className="flex items-start justify-between mb-3">
+                <h2 className="text-sm font-semibold flex items-center gap-2">
+                  <User className="w-4 h-4 text-primary" />
+                  Patient Information
+                </h2>
+                <button onClick={() => setShowPatientInfo(false)} className="text-xs text-muted-foreground hover:text-foreground transition-colors">Hide</button>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Full Name</p>
+                  <p className="text-sm font-medium">{patient.name}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Patient ID</p>
+                  <p className="text-sm font-mono">{patient.id}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Age / Gender</p>
+                  <p className="text-sm">{patient.age}yo · {patient.gender}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">BMI</p>
+                  <p className="text-sm">{patient.bmi}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Pain Level</p>
+                  <div className="flex items-center gap-1">
+                    <div className="flex gap-0.5">
+                      {Array.from({ length: 10 }).map((_, i) => (
+                        <div key={i} className={`w-1.5 h-3 rounded-sm ${i < patient.painLevel ? (patient.painLevel >= 7 ? "bg-destructive" : patient.painLevel >= 4 ? "bg-warning" : "bg-success") : "bg-muted"}`} />
+                      ))}
+                    </div>
+                    <span className="text-xs text-muted-foreground ml-1">{patient.painLevel}/10</span>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Last Visit</p>
+                  <p className="text-sm flex items-center gap-1"><Calendar className="w-3 h-3 text-muted-foreground" />{patient.lastVisit}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Medical History</p>
+                  <p className="text-xs text-foreground/80">{patient.history}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Current Symptoms</p>
+                  <p className="text-xs text-foreground/80">{patient.symptoms}</p>
+                </div>
+              </div>
+              {patient.scans.length > 0 && patient.scans[0].grade !== null && (
+                <div className="mt-3 pt-3 border-t border-border/50">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">Previous Scans</p>
+                  <div className="flex gap-2 flex-wrap">
+                    {patient.scans.map(scan => (
+                      <div key={scan.id} className="px-2.5 py-1.5 rounded-lg bg-background border text-[11px] flex items-center gap-2">
+                        <span className="font-medium">{scan.modality.toUpperCase()}</span>
+                        <span className="text-muted-foreground">{scan.view}</span>
+                        <span className="text-muted-foreground">·</span>
+                        <span className="text-muted-foreground">{scan.date}</span>
+                        {scan.grade !== null && <GradeBadge grade={scan.grade} />}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="mt-3 flex justify-end">
+                <button
+                  onClick={() => setShowPatientInfo(false)}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
+                >
+                  Proceed to Upload <ChevronRight className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {!showPatientInfo && diagnosticStage === "idle" && (
+        <div className="border-b px-5 py-1.5 bg-muted/20 flex items-center justify-between">
+          <p className="text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">{patient.name}</span> · {patient.age}yo · {patient.gender} · BMI {patient.bmi} · Pain {patient.painLevel}/10
+          </p>
+          <button onClick={() => setShowPatientInfo(true)} className="text-xs text-primary hover:underline">Show details</button>
+        </div>
+      )}
 
       <div className="flex-1 flex overflow-hidden">
         <DiagnosticsToolbar activeTool={activeTool} setActiveTool={setActiveTool} zoom={zoom} setZoom={setZoom} setBrightness={setBrightness} setContrast={setContrast} />
