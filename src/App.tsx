@@ -10,6 +10,7 @@ import DiagnosticsPage from "./pages/DiagnosticsPage";
 import ReportsHubPage from "./pages/ReportsHubPage";
 import ReportDetailPage from "./pages/ReportDetailPage";
 import SettingsPage from "./pages/SettingsPage";
+import AdminPage from "./pages/AdminPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +29,7 @@ const App = () => (
             <Route path="/reports" element={<ReportsHubPage />} />
             <Route path="/reports/:patientId" element={<ReportDetailPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/admin" element={<AdminPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AppLayout>
