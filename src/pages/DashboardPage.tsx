@@ -127,7 +127,7 @@ export default function DashboardPage() {
           </motion.div>
 
           {/* Charts Row */}
-          <motion.div variants={itemVariants} className="grid grid-cols-3 gap-4">
+          <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Grade Distribution */}
             <div className="card-clinical">
               <p className="section-header mb-3">OA Grade Distribution</p>
