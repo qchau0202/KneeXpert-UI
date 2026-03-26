@@ -184,7 +184,7 @@ export default function DashboardPage() {
           </motion.div>
 
           {/* Recent Activity + Patient Table */}
-          <motion.div variants={itemVariants} className="grid grid-cols-4 gap-4">
+          <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-4 gap-4">
             {/* Recent Activity */}
             <div className="card-clinical col-span-1">
               <p className="section-header mb-3">Recent Activity</p>
@@ -211,7 +211,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Patient Table */}
-            <div className="card-clinical !p-0 overflow-hidden col-span-3">
+            <div className="card-clinical !p-0 overflow-hidden lg:col-span-3">
               {/* Search & Filter */}
               <div className="flex items-center gap-3 p-4 border-b">
                 <div className="relative flex-1">
