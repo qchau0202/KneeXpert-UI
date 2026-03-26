@@ -89,18 +89,18 @@ export default function DashboardPage() {
   });
 
   return (
-    <div className="flex h-screen">
+    <div className="flex min-h-screen">
       <div className="flex-1 overflow-auto">
-        <motion.div variants={containerVariants} initial="hidden" animate="visible" className="p-6 space-y-6">
+        <motion.div variants={containerVariants} initial="hidden" animate="visible" className="p-4 sm:p-6 space-y-5">
           {/* Header */}
-          <motion.div variants={itemVariants} className="flex items-center justify-between">
+          <motion.div variants={itemVariants} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h1 className="text-2xl font-medium tracking-tight">Dashboard</h1>
-              <p className="text-sm text-muted-foreground mt-1">KneeXpert Clinical Overview · {new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</p>
+              <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">Dashboard</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">KneeXpert Clinical Overview · {new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</p>
             </div>
             <button
               onClick={() => setShowAddPatient(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors self-start sm:self-auto"
             >
               <Plus className="w-4 h-4" />
               New Patient
@@ -108,20 +108,20 @@ export default function DashboardPage() {
           </motion.div>
 
           {/* Stats Grid */}
-          <motion.div variants={itemVariants} className="grid grid-cols-6 gap-3">
+          <motion.div variants={itemVariants} className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             {stats.map((stat) => (
               <div key={stat.label} className="card-clinical">
                 <div className="flex items-center justify-between mb-2">
-                  <div className="w-8 h-8 rounded-lg bg-primary-muted flex items-center justify-center">
-                    <stat.icon className="w-4 h-4 text-primary" />
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-primary-muted flex items-center justify-center">
+                    <stat.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
                   </div>
-                  <div className={`flex items-center gap-0.5 text-xs font-medium ${stat.up ? "text-success" : "text-warning"}`}>
+                  <div className={`flex items-center gap-0.5 text-[10px] sm:text-xs font-medium ${stat.up ? "text-success" : "text-warning"}`}>
                     {stat.up ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
                     {stat.trend}
                   </div>
                 </div>
-                <p className="text-xl font-medium tracking-tight">{stat.value}</p>
-                <p className="text-[11px] text-muted-foreground">{stat.label}</p>
+                <p className="text-lg sm:text-xl font-semibold tracking-tight">{stat.value}</p>
+                <p className="text-[10px] sm:text-[11px] text-muted-foreground">{stat.label}</p>
               </div>
             ))}
           </motion.div>
