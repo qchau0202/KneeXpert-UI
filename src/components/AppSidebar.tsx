@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Users, Scan, FileText, Settings, Activity, User, LogOut,
-  Bell, ChevronLeft, ChevronRight, ShieldCheck
+  Bell, ChevronLeft, ChevronRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
@@ -12,12 +12,12 @@ const navItems = [
   { icon: Users, label: "Patients", path: "/patients" },
   { icon: Scan, label: "Diagnostics", path: "/diagnostics" },
   { icon: FileText, label: "Reports", path: "/reports" },
-  { icon: ShieldCheck, label: "Admin", path: "/admin" },
   { icon: Settings, label: "Settings", path: "/settings" },
 ];
 
 function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
   const location = useLocation();
+  const navigate = useNavigate();
 
   return (
     <div className="flex flex-col h-full">
@@ -99,7 +99,10 @@ function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; onNavig
             </div>
           )}
           {!collapsed && (
-            <button className="text-sidebar-foreground hover:text-sidebar-accent-foreground transition-colors p-1 rounded-md hover:bg-sidebar-accent/50">
+            <button
+              onClick={() => navigate("/login")}
+              className="text-sidebar-foreground hover:text-sidebar-accent-foreground transition-colors p-1 rounded-md hover:bg-sidebar-accent/50"
+            >
               <LogOut className="w-3.5 h-3.5" />
             </button>
           )}
@@ -120,12 +123,12 @@ export function AppSidebar() {
       className="h-screen flex flex-col bg-sidebar border-r border-sidebar-border sticky top-0 overflow-hidden flex-shrink-0 relative"
     >
       <SidebarContent collapsed={collapsed} />
-      {/* Collapse toggle - floating button at edge */}
+      {/* Visible collapse toggle */}
       <button
         onClick={() => setCollapsed(!collapsed)}
-        className="absolute top-[18px] -right-3 z-50 w-6 h-6 rounded-full bg-sidebar border border-sidebar-border flex items-center justify-center text-sidebar-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent transition-colors shadow-sm"
+        className="absolute top-[18px] -right-3.5 z-50 w-7 h-7 rounded-full bg-background border-2 border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-all shadow-md hover:shadow-lg"
       >
-        {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
+        {collapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
       </button>
     </motion.aside>
   );
