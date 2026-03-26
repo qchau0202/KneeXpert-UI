@@ -10,6 +10,7 @@ import DiagnosticsPage from "./pages/DiagnosticsPage";
 import ReportsHubPage from "./pages/ReportsHubPage";
 import ReportDetailPage from "./pages/ReportDetailPage";
 import SettingsPage from "./pages/SettingsPage";
+import AdminPage from "./pages/AdminPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
