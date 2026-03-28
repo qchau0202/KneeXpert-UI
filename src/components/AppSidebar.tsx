@@ -2,7 +2,7 @@ import { useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Users, Scan, FileText, Settings, Activity, User, LogOut,
-  Bell, ChevronLeft, ChevronRight
+  Bell, PanelLeftClose, PanelLeft
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
@@ -15,28 +15,52 @@ const navItems = [
   { icon: Settings, label: "Settings", path: "/settings" },
 ];
 
-function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
+function SidebarContent({ collapsed, onNavigate, onToggle }: { collapsed: boolean; onNavigate?: () => void; onToggle?: () => void }) {
   const location = useLocation();
   const navigate = useNavigate();
 
   return (
     <div className="flex flex-col h-full">
-      {/* Logo */}
-      <div className={cn("h-14 flex items-center gap-3 border-b border-sidebar-border flex-shrink-0", collapsed ? "justify-center px-2" : "px-4")}>
-        <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center flex-shrink-0">
-          <Activity className="w-4 h-4 text-primary-foreground" />
+      {/* Logo + Toggle */}
+      <div className={cn("h-14 flex items-center border-b border-sidebar-border flex-shrink-0", collapsed ? "justify-center px-2" : "justify-between px-4")}>
+        <div className={cn("flex items-center gap-3", collapsed && "justify-center")}>
+          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center flex-shrink-0">
+            <Activity className="w-4 h-4 text-primary-foreground" />
+          </div>
+          {!collapsed && (
+            <motion.span
+              initial={{ opacity: 0, width: 0 }}
+              animate={{ opacity: 1, width: "auto" }}
+              exit={{ opacity: 0, width: 0 }}
+              className="text-sm font-semibold text-sidebar-accent-foreground whitespace-nowrap overflow-hidden"
+            >
+              KneeXpert
+            </motion.span>
+          )}
         </div>
-        {!collapsed && (
-          <motion.span
-            initial={{ opacity: 0, width: 0 }}
-            animate={{ opacity: 1, width: "auto" }}
-            exit={{ opacity: 0, width: 0 }}
-            className="text-sm font-semibold text-sidebar-accent-foreground whitespace-nowrap overflow-hidden"
+        {!collapsed && onToggle && (
+          <button
+            onClick={onToggle}
+            className="p-1.5 rounded-md text-sidebar-foreground/60 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent/50 transition-colors"
+            title="Collapse sidebar"
           >
-            KneeXpert
-          </motion.span>
+            <PanelLeftClose className="w-4 h-4" />
+          </button>
         )}
       </div>
+
+      {/* Expand button when collapsed */}
+      {collapsed && onToggle && (
+        <div className="flex justify-center pt-2 px-2">
+          <button
+            onClick={onToggle}
+            className="p-2 rounded-md text-sidebar-foreground/60 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent/50 transition-colors"
+            title="Expand sidebar"
+          >
+            <PanelLeft className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Navigation */}
       <nav className="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto">
@@ -120,16 +144,9 @@ export function AppSidebar() {
       initial={false}
       animate={{ width: collapsed ? 64 : 220 }}
       transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
-      className="h-screen flex flex-col bg-sidebar border-r border-sidebar-border sticky top-0 overflow-hidden flex-shrink-0 relative"
+      className="h-screen flex flex-col bg-sidebar border-r border-sidebar-border sticky top-0 overflow-hidden flex-shrink-0"
     >
-      <SidebarContent collapsed={collapsed} />
-      {/* Visible collapse toggle */}
-      <button
-        onClick={() => setCollapsed(!collapsed)}
-        className="absolute top-[18px] -right-3.5 z-50 w-7 h-7 rounded-full bg-background border-2 border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-all shadow-md hover:shadow-lg"
-      >
-        {collapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
-      </button>
+      <SidebarContent collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
     </motion.aside>
   );
 }

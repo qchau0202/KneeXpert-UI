@@ -2,6 +2,13 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Activity, Eye, EyeOff, Mail, Lock, ArrowRight } from "lucide-react";
+import { toast } from "sonner";
+
+const MOCK_DOCTORS = [
+  { email: "chau@kneexpert.com", password: "doctor123", name: "Dr. Quốc Châu" },
+  { email: "linh@kneexpert.com", password: "doctor123", name: "Dr. Thu Linh" },
+  { email: "minh@kneexpert.com", password: "doctor123", name: "Dr. Anh Minh" },
+];
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -9,14 +16,25 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
     setIsLoading(true);
+
     setTimeout(() => {
+      const doctor = MOCK_DOCTORS.find(
+        (d) => d.email === email && d.password === password
+      );
       setIsLoading(false);
-      navigate("/");
-    }, 1200);
+      if (doctor) {
+        toast.success(`Welcome back, ${doctor.name}!`);
+        navigate("/");
+      } else {
+        setError("Invalid email or password. Try one of the demo accounts below.");
+      }
+    }, 1000);
   };
 
   return (
@@ -67,7 +85,7 @@ export default function LoginPage() {
                 <input
                   type="email"
                   value={email}
-                  onChange={e => setEmail(e.target.value)}
+                  onChange={e => { setEmail(e.target.value); setError(""); }}
                   placeholder="doctor@hospital.edu.vn"
                   className="w-full pl-10 pr-4 py-2.5 rounded-lg border bg-background text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/30 transition"
                   required
@@ -81,7 +99,7 @@ export default function LoginPage() {
                 <input
                   type={showPassword ? "text" : "password"}
                   value={password}
-                  onChange={e => setPassword(e.target.value)}
+                  onChange={e => { setPassword(e.target.value); setError(""); }}
                   placeholder="••••••••"
                   className="w-full pl-10 pr-10 py-2.5 rounded-lg border bg-background text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/30 transition"
                   required
@@ -95,6 +113,10 @@ export default function LoginPage() {
                 </button>
               </div>
             </div>
+
+            {error && (
+              <p className="text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2">{error}</p>
+            )}
 
             <div className="flex items-center justify-between">
               <label className="flex items-center gap-2 cursor-pointer">
@@ -121,6 +143,24 @@ export default function LoginPage() {
               )}
             </button>
           </form>
+
+          {/* Demo accounts */}
+          <div className="mt-5 p-3 rounded-lg border border-dashed bg-muted/30">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Demo Accounts</p>
+            <div className="space-y-1.5">
+              {MOCK_DOCTORS.map((d) => (
+                <button
+                  key={d.email}
+                  type="button"
+                  onClick={() => { setEmail(d.email); setPassword(d.password); setError(""); }}
+                  className="w-full flex items-center justify-between text-left px-2.5 py-1.5 rounded-md hover:bg-muted transition-colors group"
+                >
+                  <span className="text-xs text-foreground">{d.name}</span>
+                  <span className="text-[10px] text-muted-foreground group-hover:text-foreground transition-colors">{d.email}</span>
+                </button>
+              ))}
+            </div>
+          </div>
 
           <p className="text-xs text-muted-foreground text-center mt-6">
             Don't have an account?{" "}

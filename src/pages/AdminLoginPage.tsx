@@ -2,6 +2,12 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Activity, Eye, EyeOff, Mail, Lock, ArrowRight, ShieldCheck } from "lucide-react";
+import { toast } from "sonner";
+
+const MOCK_ADMINS = [
+  { email: "admin@kneexpert.com", password: "admin123", name: "System Admin" },
+  { email: "superadmin@kneexpert.com", password: "admin123", name: "Super Admin" },
+];
 
 export default function AdminLoginPage() {
   const navigate = useNavigate();
@@ -9,14 +15,25 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
     setIsLoading(true);
+
     setTimeout(() => {
+      const admin = MOCK_ADMINS.find(
+        (a) => a.email === email && a.password === password
+      );
       setIsLoading(false);
-      navigate("/admin");
-    }, 1200);
+      if (admin) {
+        toast.success(`Welcome, ${admin.name}!`);
+        navigate("/admin");
+      } else {
+        setError("Invalid admin credentials. Try one of the demo accounts below.");
+      }
+    }, 1000);
   };
 
   return (
@@ -50,7 +67,7 @@ export default function AdminLoginPage() {
                 <input
                   type="email"
                   value={email}
-                  onChange={e => setEmail(e.target.value)}
+                  onChange={e => { setEmail(e.target.value); setError(""); }}
                   placeholder="admin@kneexpert.com"
                   className="w-full pl-10 pr-4 py-2.5 rounded-lg border bg-background text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/30 transition"
                   required
@@ -64,7 +81,7 @@ export default function AdminLoginPage() {
                 <input
                   type={showPassword ? "text" : "password"}
                   value={password}
-                  onChange={e => setPassword(e.target.value)}
+                  onChange={e => { setPassword(e.target.value); setError(""); }}
                   placeholder="••••••••"
                   className="w-full pl-10 pr-10 py-2.5 rounded-lg border bg-background text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring/30 transition"
                   required
@@ -78,6 +95,10 @@ export default function AdminLoginPage() {
                 </button>
               </div>
             </div>
+
+            {error && (
+              <p className="text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2">{error}</p>
+            )}
 
             <button
               type="submit"
@@ -94,6 +115,24 @@ export default function AdminLoginPage() {
               )}
             </button>
           </form>
+
+          {/* Demo accounts */}
+          <div className="mt-4 p-3 rounded-lg border border-dashed bg-muted/30">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Demo Accounts</p>
+            <div className="space-y-1.5">
+              {MOCK_ADMINS.map((a) => (
+                <button
+                  key={a.email}
+                  type="button"
+                  onClick={() => { setEmail(a.email); setPassword(a.password); setError(""); }}
+                  className="w-full flex items-center justify-between text-left px-2.5 py-1.5 rounded-md hover:bg-muted transition-colors group"
+                >
+                  <span className="text-xs text-foreground">{a.name}</span>
+                  <span className="text-[10px] text-muted-foreground group-hover:text-foreground transition-colors">{a.email}</span>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         <p className="text-xs text-sidebar-foreground/40 text-center mt-5">
