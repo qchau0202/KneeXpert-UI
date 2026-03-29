@@ -3,6 +3,7 @@ import { AppSidebar, SidebarContent } from "./AppSidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Menu, Activity } from "lucide-react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { TutorialOverlay } from "./TutorialOverlay";
 
 interface AppLayoutProps {
   children: ReactNode;
