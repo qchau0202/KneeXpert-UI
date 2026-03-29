@@ -1,4 +1,5 @@
-import { Move, ZoomIn, ZoomOut, Ruler, Crosshair, RotateCcw } from "lucide-react";
+import { Move, ZoomIn, ZoomOut, Ruler, Crosshair, RotateCcw, Pencil, MousePointer } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface DiagnosticsToolbarProps {
   activeTool: string;
@@ -7,13 +8,17 @@ interface DiagnosticsToolbarProps {
   setZoom: (z: number) => void;
   setBrightness: (b: number) => void;
   setContrast: (c: number) => void;
+  measurements?: { id: string; label: string }[];
+  annotations?: { id: string; label: string }[];
 }
 
 const tools = [
-  { id: "pan", icon: Move, label: "Pan" },
-  { id: "zoom", icon: ZoomIn, label: "Zoom" },
-  { id: "measure", icon: Ruler, label: "Measure" },
-  { id: "annotate", icon: Crosshair, label: "Annotate" },
+  { id: "select", icon: MousePointer, label: "Select", desc: "Select and interact" },
+  { id: "pan", icon: Move, label: "Pan", desc: "Click and drag to pan" },
+  { id: "zoom", icon: ZoomIn, label: "Zoom", desc: "Click to zoom area" },
+  { id: "measure", icon: Ruler, label: "Measure", desc: "Click two points to measure distance" },
+  { id: "annotate", icon: Crosshair, label: "Annotate", desc: "Click to place a marker" },
+  { id: "draw", icon: Pencil, label: "Draw", desc: "Freehand drawing on scan" },
 ];
 
 export function DiagnosticsToolbar({
@@ -25,14 +30,19 @@ export function DiagnosticsToolbar({
         <button
           key={tool.id}
           onClick={() => setActiveTool(tool.id)}
-          className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${
+          className={cn(
+            "w-9 h-9 rounded-lg flex items-center justify-center transition-all relative group",
             activeTool === tool.id
-              ? "bg-primary text-primary-foreground"
+              ? "bg-primary text-primary-foreground shadow-sm"
               : "text-muted-foreground hover:bg-muted hover:text-foreground"
-          }`}
+          )}
           title={tool.label}
         >
           <tool.icon className="w-4 h-4" />
+          {/* Tooltip */}
+          <div className="absolute left-full ml-2 px-2 py-1 rounded-md bg-foreground text-background text-[10px] font-medium whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50">
+            {tool.desc}
+          </div>
         </button>
       ))}
       <div className="w-6 h-px bg-border my-2" />
@@ -43,17 +53,19 @@ export function DiagnosticsToolbar({
       >
         <ZoomIn className="w-4 h-4" />
       </button>
+      <span className="text-[9px] text-muted-foreground font-mono">{zoom}%</span>
       <button
-        onClick={() => setZoom(Math.max(50, zoom - 25))}
+        onClick={() => setZoom(Math.max(25, zoom - 25))}
         className="w-9 h-9 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-all"
         title="Zoom Out"
       >
         <ZoomOut className="w-4 h-4" />
       </button>
+      <div className="w-6 h-px bg-border my-2" />
       <button
         onClick={() => { setZoom(100); setBrightness(100); setContrast(100); }}
         className="w-9 h-9 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-all"
-        title="Reset"
+        title="Reset all adjustments"
       >
         <RotateCcw className="w-4 h-4" />
       </button>
