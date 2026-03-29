@@ -335,9 +335,51 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   const handleDrop = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(false); const file = e.dataTransfer.files?.[0]; if (file) startDiagnosticFlow(file.name); };
   const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(true); };
   const handleDragLeave = () => setIsDragging(false);
-  const resetDiagnostic = () => { setDiagnosticStage("idle"); setStagesCompleted([]); setCurrentStageIndex(0); setUploadProgress(0); setUploadedFileName(""); };
+  const resetDiagnostic = () => { setDiagnosticStage("idle"); setStagesCompleted([]); setCurrentStageIndex(0); setUploadProgress(0); setUploadedFileName(""); setMeasurements([]); setAnnotations([]); setPanOffset({ x: 0, y: 0 }); };
 
   const isProcessing = diagnosticStage !== "idle" && diagnosticStage !== "complete";
+
+  const getRelativePos = (e: React.MouseEvent) => {
+    const rect = imageContainerRef.current?.getBoundingClientRect();
+    if (!rect) return { x: 0, y: 0 };
+    return { x: ((e.clientX - rect.left) / rect.width) * 100, y: ((e.clientY - rect.top) / rect.height) * 100 };
+  };
+
+  const handleImageMouseDown = (e: React.MouseEvent) => {
+    if (activeTool === "pan") {
+      setIsPanning(true);
+      setPanStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
+    }
+  };
+
+  const handleImageMouseMove = (e: React.MouseEvent) => {
+    if (activeTool === "pan" && isPanning) {
+      setPanOffset({ x: e.clientX - panStart.x, y: e.clientY - panStart.y });
+    }
+  };
+
+  const handleImageMouseUp = () => {
+    if (activeTool === "pan") setIsPanning(false);
+  };
+
+  const handleImageClick = (e: React.MouseEvent) => {
+    if (diagnosticStage !== "complete") return;
+    const pos = getRelativePos(e);
+    if (activeTool === "zoom") {
+      setZoom(prev => Math.min(200, prev + 25));
+    } else if (activeTool === "measure") {
+      if (!measureStart) {
+        setMeasureStart(pos);
+      } else {
+        const dist = Math.sqrt(Math.pow(pos.x - measureStart.x, 2) + Math.pow(pos.y - measureStart.y, 2));
+        setMeasurements(prev => [...prev, { id: `m${Date.now()}`, x1: measureStart.x, y1: measureStart.y, x2: pos.x, y2: pos.y }]);
+        setMeasureStart(null);
+      }
+    } else if (activeTool === "annotate") {
+      const label = `A${annotations.length + 1}`;
+      setAnnotations(prev => [...prev, { id: `a${Date.now()}`, x: pos.x, y: pos.y, label }]);
+    }
+  };
 
   return (
     <div className="flex flex-col h-full">
