@@ -2,10 +2,11 @@ import { useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Users, Scan, FileText, Settings, Activity, User, LogOut,
-  Bell, PanelLeftClose, PanelLeft
+  PanelLeftClose, PanelLeft
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
+import { NotificationCenter } from "./NotificationCenter";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
@@ -91,23 +92,7 @@ function SidebarContent({ collapsed, onNavigate, onToggle }: { collapsed: boolea
 
       {/* Notifications */}
       <div className="px-2 pb-1 flex-shrink-0">
-        <button
-          title={collapsed ? "Notifications" : undefined}
-          className={cn(
-            "flex items-center gap-3 rounded-lg text-sm transition-colors duration-150 w-full",
-            collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2",
-            "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
-          )}
-        >
-          <div className="relative flex-shrink-0">
-            <Bell className="w-4 h-4" />
-            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-destructive border-2 border-sidebar" />
-          </div>
-          {!collapsed && <span className="whitespace-nowrap">Notifications</span>}
-          {!collapsed && (
-            <span className="ml-auto text-[10px] font-medium bg-destructive text-destructive-foreground px-1.5 py-0.5 rounded-full">3</span>
-          )}
-        </button>
+        <NotificationCenter collapsed={collapsed} />
       </div>
 
       {/* User section */}

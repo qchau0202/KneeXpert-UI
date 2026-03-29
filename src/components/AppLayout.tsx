@@ -3,6 +3,7 @@ import { AppSidebar, SidebarContent } from "./AppSidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Menu, Activity } from "lucide-react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { TutorialOverlay } from "./TutorialOverlay";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -14,6 +15,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <div className="min-h-screen flex w-full bg-background">
+      <TutorialOverlay />
       {!isMobile && <AppSidebar />}
       <div className="flex-1 min-w-0 flex flex-col">
         {isMobile && (
