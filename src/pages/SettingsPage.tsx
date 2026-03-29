@@ -2,8 +2,10 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   User, Bell, Shield, Monitor, Palette,
-  ToggleLeft, ToggleRight, Check, Lock, HardDrive, Trash2
+  ToggleLeft, ToggleRight, Check, Lock, HardDrive, Trash2, BookOpen
 } from "lucide-react";
+import { resetTutorial } from "@/components/TutorialOverlay";
+import { toast } from "sonner";
 
 const containerVariants = {
   hidden: { opacity: 0, y: 8 },
