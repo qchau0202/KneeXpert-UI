@@ -2,10 +2,11 @@ import { useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Users, Scan, FileText, Settings, Activity, User, LogOut,
-  Bell, PanelLeftClose, PanelLeft
+  PanelLeftClose, PanelLeft
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
+import { NotificationCenter } from "./NotificationCenter";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
