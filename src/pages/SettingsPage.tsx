@@ -250,7 +250,13 @@ export default function SettingsPage() {
                     </div>
                   ))}
                 </div>
-                <div className="flex gap-2 mt-4">
+                <div className="flex gap-2 mt-4 flex-wrap">
+                  <button
+                    onClick={() => { resetTutorial(); toast.success("Tutorial reset! Refresh the page to see it."); }}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium hover:bg-muted transition-colors"
+                  >
+                    <BookOpen className="w-4 h-4" />Restart Tutorial
+                  </button>
                   <button className="flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium hover:bg-muted transition-colors">
                     <HardDrive className="w-4 h-4" />Clear Cache
                   </button>
