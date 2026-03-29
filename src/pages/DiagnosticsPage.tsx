@@ -246,6 +246,7 @@ function PatientSelector({ onSelect }: { onSelect: (p: Patient) => void }) {
 // ============================================================
 function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: () => void }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageContainerRef = useRef<HTMLDivElement>(null);
   const [activeModality, setActiveModality] = useState<Modality>(patient.modality);
   const models = activeModality === "xray" ? xrayModels : mriModels;
   const views = activeModality === "xray" ? xrayViews : mriViews;
@@ -255,7 +256,13 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   const [brightness, setBrightness] = useState(100);
   const [contrast, setContrast] = useState(100);
   const [zoom, setZoom] = useState(100);
-  const [activeTool, setActiveTool] = useState("pan");
+  const [activeTool, setActiveTool] = useState("select");
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [measurements, setMeasurements] = useState<{ id: string; x1: number; y1: number; x2: number; y2: number }[]>([]);
+  const [measureStart, setMeasureStart] = useState<{ x: number; y: number } | null>(null);
+  const [annotations, setAnnotations] = useState<{ id: string; x: number; y: number; label: string }[]>([]);
   const [overrideGrade, setOverrideGrade] = useState<number | null>(null);
   const [showOverridePanel, setShowOverridePanel] = useState(false);
   const [overrideNotes, setOverrideNotes] = useState("");
@@ -267,6 +274,13 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   const [currentStageIndex, setCurrentStageIndex] = useState(0);
   const [stagesCompleted, setStagesCompleted] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+
+  const toolCursor = activeTool === "pan" ? (isPanning ? "grabbing" : "grab") 
+    : activeTool === "zoom" ? "zoom-in" 
+    : activeTool === "measure" ? "crosshair" 
+    : activeTool === "annotate" ? "crosshair" 
+    : activeTool === "draw" ? "crosshair" 
+    : "default";
 
   const currentScan = patient.scans.find(s => s.modality === activeModality && s.view === selectedView) || patient.scans[0];
   const stages = activeModality === "xray" ? xrayStages : mriStages;
