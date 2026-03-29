@@ -15,6 +15,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <div className="min-h-screen flex w-full bg-background">
+      <TutorialOverlay />
       {!isMobile && <AppSidebar />}
       <div className="flex-1 min-w-0 flex flex-col">
         {isMobile && (
