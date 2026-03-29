@@ -446,19 +446,54 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
 
             {/* Image area */}
             <div
+              ref={imageContainerRef}
               className={cn("aspect-square max-h-[500px] bg-foreground/[0.02] flex items-center justify-center relative overflow-hidden transition-colors", isDragging && "bg-primary/5 ring-2 ring-primary/30 ring-inset")}
+              style={{ cursor: toolCursor }}
               onDrop={handleDrop}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
+              onMouseDown={handleImageMouseDown}
+              onMouseMove={handleImageMouseMove}
+              onMouseUp={handleImageMouseUp}
+              onMouseLeave={handleImageMouseUp}
+              onClick={handleImageClick}
             >
               <input ref={fileInputRef} type="file" accept=".dcm,.dicom,.jpg,.jpeg,.png,.nii,.nii.gz" className="hidden" onChange={handleFileChange} />
+
+              {/* Measurement overlays */}
+              <svg className="absolute inset-0 w-full h-full pointer-events-none z-20">
+                {measurements.map(m => (
+                  <g key={m.id}>
+                    <line x1={`${m.x1}%`} y1={`${m.y1}%`} x2={`${m.x2}%`} y2={`${m.y2}%`} stroke="hsl(var(--primary))" strokeWidth="2" strokeDasharray="4 2" />
+                    <circle cx={`${m.x1}%`} cy={`${m.y1}%`} r="3" fill="hsl(var(--primary))" />
+                    <circle cx={`${m.x2}%`} cy={`${m.y2}%`} r="3" fill="hsl(var(--primary))" />
+                    <text x={`${(m.x1 + m.x2) / 2}%`} y={`${(m.y1 + m.y2) / 2 - 2}%`} fill="hsl(var(--primary))" fontSize="10" textAnchor="middle" fontWeight="600">
+                      {Math.round(Math.sqrt(Math.pow(m.x2 - m.x1, 2) + Math.pow(m.y2 - m.y1, 2)) * 2.5)}mm
+                    </text>
+                  </g>
+                ))}
+                {measureStart && (
+                  <circle cx={`${measureStart.x}%`} cy={`${measureStart.y}%`} r="4" fill="hsl(var(--primary))" opacity="0.7">
+                    <animate attributeName="r" values="3;5;3" dur="1s" repeatCount="indefinite" />
+                  </circle>
+                )}
+              </svg>
+
+              {/* Annotation overlays */}
+              {annotations.map(a => (
+                <div key={a.id} className="absolute z-20 pointer-events-none" style={{ left: `${a.x}%`, top: `${a.y}%`, transform: "translate(-50%, -50%)" }}>
+                  <div className="w-5 h-5 rounded-full bg-warning border-2 border-warning-foreground flex items-center justify-center">
+                    <span className="text-[8px] font-bold text-warning-foreground">{a.label}</span>
+                  </div>
+                </div>
+              ))}
 
               <AnimatePresence mode="wait">
                 {diagnosticStage === "idle" ? (
                   <motion.div key="upload" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                     className="w-64 h-64 sm:w-72 sm:h-72 rounded-xl bg-foreground/5 border-2 border-dashed border-border hover:border-primary/40 flex flex-col items-center justify-center gap-3 transition-all cursor-pointer"
                     style={{ transform: `scale(${zoom / 100})`, filter: `brightness(${brightness}%) contrast(${contrast}%)` }}
-                    onClick={handleFileSelect}
+                    onClick={(e) => { e.stopPropagation(); handleFileSelect(); }}
                   >
                     <div className="w-14 h-14 rounded-xl bg-muted flex items-center justify-center">
                       <Image className="w-7 h-7 text-muted-foreground" />
@@ -475,7 +510,7 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                 ) : diagnosticStage === "complete" ? (
                   <motion.div key="result-image" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                     className="w-64 h-64 sm:w-72 sm:h-72 rounded-xl bg-foreground/[0.08] border flex items-center justify-center relative"
-                    style={{ transform: `scale(${zoom / 100})`, filter: `brightness(${brightness}%) contrast(${contrast}%)` }}
+                    style={{ transform: `scale(${zoom / 100}) translate(${panOffset.x / 4}px, ${panOffset.y / 4}px)`, filter: `brightness(${brightness}%) contrast(${contrast}%)` }}
                   >
                     <div className="absolute inset-0 rounded-xl overflow-hidden">
                       <div className={cn("w-full h-full", activeModality === "xray" ? "bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900" : "bg-gradient-to-br from-gray-800 via-gray-700 to-gray-900")}>
