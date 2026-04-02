@@ -274,6 +274,7 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   const [currentStageIndex, setCurrentStageIndex] = useState(0);
   const [stagesCompleted, setStagesCompleted] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
 
   const toolCursor = activeTool === "pan" ? (isPanning ? "grabbing" : "grab") 
     : activeTool === "zoom" ? "zoom-in" 
