@@ -332,11 +332,18 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   }, [diagnosticStage, currentStageIndex, stages]);
 
   const handleFileSelect = () => fileInputRef.current?.click();
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (file) startDiagnosticFlow(file.name); };
-  const handleDrop = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(false); const file = e.dataTransfer.files?.[0]; if (file) startDiagnosticFlow(file.name); };
+  const processFile = (file: File) => {
+    startDiagnosticFlow(file.name);
+    if (file.type.startsWith("image/")) {
+      const url = URL.createObjectURL(file);
+      setUploadedImageUrl(url);
+    }
+  };
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (file) processFile(file); };
+  const handleDrop = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(false); const file = e.dataTransfer.files?.[0]; if (file) processFile(file); };
   const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(true); };
   const handleDragLeave = () => setIsDragging(false);
-  const resetDiagnostic = () => { setDiagnosticStage("idle"); setStagesCompleted([]); setCurrentStageIndex(0); setUploadProgress(0); setUploadedFileName(""); setMeasurements([]); setAnnotations([]); setPanOffset({ x: 0, y: 0 }); };
+  const resetDiagnostic = () => { setDiagnosticStage("idle"); setStagesCompleted([]); setCurrentStageIndex(0); setUploadProgress(0); setUploadedFileName(""); setMeasurements([]); setAnnotations([]); setPanOffset({ x: 0, y: 0 }); if (uploadedImageUrl) { URL.revokeObjectURL(uploadedImageUrl); setUploadedImageUrl(null); } };
 
   const isProcessing = diagnosticStage !== "idle" && diagnosticStage !== "complete";
 
