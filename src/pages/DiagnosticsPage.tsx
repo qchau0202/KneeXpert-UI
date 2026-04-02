@@ -428,10 +428,8 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
       <div className="flex-1 overflow-auto">
         {/* Image workspace */}
         <div className="flex flex-col lg:flex-row">
-          {/* Tools sidebar — desktop only */}
-          <div className="hidden lg:block flex-shrink-0">
-            <DiagnosticsToolbar activeTool={activeTool} setActiveTool={setActiveTool} zoom={zoom} setZoom={setZoom} setBrightness={setBrightness} setContrast={setContrast} />
-          </div>
+          {/* Tools — horizontal on mobile via DiagnosticsToolbar, vertical on desktop */}
+          <DiagnosticsToolbar activeTool={activeTool} setActiveTool={setActiveTool} zoom={zoom} setZoom={setZoom} setBrightness={setBrightness} setContrast={setContrast} />
 
           {/* Original scan panel */}
           <div className="flex-1 border-r border-b flex flex-col">
