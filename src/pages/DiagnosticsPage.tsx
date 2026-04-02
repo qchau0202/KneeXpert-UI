@@ -461,34 +461,6 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
             >
               <input ref={fileInputRef} type="file" accept=".dcm,.dicom,.jpg,.jpeg,.png,.nii,.nii.gz" className="hidden" onChange={handleFileChange} />
 
-              {/* Measurement overlays */}
-              <svg className="absolute inset-0 w-full h-full pointer-events-none z-20">
-                {measurements.map(m => (
-                  <g key={m.id}>
-                    <line x1={`${m.x1}%`} y1={`${m.y1}%`} x2={`${m.x2}%`} y2={`${m.y2}%`} stroke="hsl(var(--primary))" strokeWidth="2" strokeDasharray="4 2" />
-                    <circle cx={`${m.x1}%`} cy={`${m.y1}%`} r="3" fill="hsl(var(--primary))" />
-                    <circle cx={`${m.x2}%`} cy={`${m.y2}%`} r="3" fill="hsl(var(--primary))" />
-                    <text x={`${(m.x1 + m.x2) / 2}%`} y={`${(m.y1 + m.y2) / 2 - 2}%`} fill="hsl(var(--primary))" fontSize="10" textAnchor="middle" fontWeight="600">
-                      {Math.round(Math.sqrt(Math.pow(m.x2 - m.x1, 2) + Math.pow(m.y2 - m.y1, 2)) * 2.5)}mm
-                    </text>
-                  </g>
-                ))}
-                {measureStart && (
-                  <circle cx={`${measureStart.x}%`} cy={`${measureStart.y}%`} r="4" fill="hsl(var(--primary))" opacity="0.7">
-                    <animate attributeName="r" values="3;5;3" dur="1s" repeatCount="indefinite" />
-                  </circle>
-                )}
-              </svg>
-
-              {/* Annotation overlays */}
-              {annotations.map(a => (
-                <div key={a.id} className="absolute z-20 pointer-events-none" style={{ left: `${a.x}%`, top: `${a.y}%`, transform: "translate(-50%, -50%)" }}>
-                  <div className="w-5 h-5 rounded-full bg-warning border-2 border-warning-foreground flex items-center justify-center">
-                    <span className="text-[8px] font-bold text-warning-foreground">{a.label}</span>
-                  </div>
-                </div>
-              ))}
-
               <AnimatePresence mode="wait">
                 {diagnosticStage === "idle" ? (
                   <motion.div key="upload" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -510,16 +482,45 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                   </motion.div>
                 ) : diagnosticStage === "complete" ? (
                   <motion.div key="result-image" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                    className="w-full h-full flex items-center justify-center relative"
-                    style={{ transform: `scale(${zoom / 100}) translate(${panOffset.x / 4}px, ${panOffset.y / 4}px)`, filter: `brightness(${brightness}%) contrast(${contrast}%)` }}
+                    className="w-full h-full relative"
+                    style={{ transform: `scale(${zoom / 100}) translate(${panOffset.x / 4}px, ${panOffset.y / 4}px)`, filter: `brightness(${brightness}%) contrast(${contrast}%)`, transformOrigin: "center center" }}
                   >
-                    <div className="absolute inset-0 overflow-hidden">
+                    <div className="absolute inset-0 flex items-center justify-center">
                       {uploadedImageUrl ? (
                         <img src={uploadedImageUrl} alt="Uploaded scan" className="w-full h-full object-contain" draggable={false} />
                       ) : (
-                        <div className={cn("w-full h-full bg-foreground/[0.08]")} />
+                        <div className="w-full h-full bg-foreground/[0.08]" />
                       )}
                     </div>
+
+                    {/* Measurement overlays — inside transform container so they follow zoom/pan */}
+                    <svg className="absolute inset-0 w-full h-full pointer-events-none z-20">
+                      {measurements.map(m => (
+                        <g key={m.id}>
+                          <line x1={`${m.x1}%`} y1={`${m.y1}%`} x2={`${m.x2}%`} y2={`${m.y2}%`} stroke="hsl(var(--primary))" strokeWidth="2" strokeDasharray="4 2" />
+                          <circle cx={`${m.x1}%`} cy={`${m.y1}%`} r="3" fill="hsl(var(--primary))" />
+                          <circle cx={`${m.x2}%`} cy={`${m.y2}%`} r="3" fill="hsl(var(--primary))" />
+                          <text x={`${(m.x1 + m.x2) / 2}%`} y={`${(m.y1 + m.y2) / 2 - 2}%`} fill="hsl(var(--primary))" fontSize="10" textAnchor="middle" fontWeight="600">
+                            {Math.round(Math.sqrt(Math.pow(m.x2 - m.x1, 2) + Math.pow(m.y2 - m.y1, 2)) * 2.5)}mm
+                          </text>
+                        </g>
+                      ))}
+                      {measureStart && (
+                        <circle cx={`${measureStart.x}%`} cy={`${measureStart.y}%`} r="4" fill="hsl(var(--primary))" opacity="0.7">
+                          <animate attributeName="r" values="3;5;3" dur="1s" repeatCount="indefinite" />
+                        </circle>
+                      )}
+                    </svg>
+
+                    {/* Annotation overlays — inside transform container */}
+                    {annotations.map(a => (
+                      <div key={a.id} className="absolute z-20 pointer-events-none" style={{ left: `${a.x}%`, top: `${a.y}%`, transform: "translate(-50%, -50%)" }}>
+                        <div className="w-5 h-5 rounded-full bg-warning border-2 border-warning-foreground flex items-center justify-center">
+                          <span className="text-[8px] font-bold text-warning-foreground">{a.label}</span>
+                        </div>
+                      </div>
+                    ))}
+
                     <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between z-10">
                       <span className="text-[10px] text-white/70 bg-black/40 px-2 py-0.5 rounded truncate">{uploadedFileName}</span>
                       <span className="text-[10px] text-white/70 bg-black/40 px-2 py-0.5 rounded">{selectedView}</span>
