@@ -611,12 +611,13 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
             <div className="aspect-square max-h-[500px] bg-foreground/[0.02] flex items-center justify-center relative">
               <AnimatePresence mode="wait">
                 {diagnosticStage === "complete" ? (
-                  <motion.div key="gradcam" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-64 h-64 sm:w-72 sm:h-72 rounded-xl relative overflow-hidden">
-                    <div className={cn("absolute inset-0", activeModality === "xray" ? "bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900" : "bg-gradient-to-br from-gray-800 via-gray-700 to-gray-900")}>
-                      <svg className="w-full h-full opacity-20" viewBox="0 0 200 200">
-                        <ellipse cx="100" cy="80" rx="55" ry="40" fill="none" stroke="white" strokeWidth="1" />
-                        <ellipse cx="100" cy="130" rx="50" ry="35" fill="none" stroke="white" strokeWidth="1" />
-                      </svg>
+                  <motion.div key="gradcam" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full h-full relative overflow-hidden">
+                    <div className="absolute inset-0">
+                      {uploadedImageUrl ? (
+                        <img src={uploadedImageUrl} alt="Scan with Grad-CAM overlay" className="w-full h-full object-contain" draggable={false} />
+                      ) : (
+                        <div className="w-full h-full bg-foreground/[0.08]" />
+                      )}
                     </div>
                     {showGradCAM && (
                       <div className="absolute inset-0" style={{ opacity: gradcamOpacity / 100 }}>
@@ -624,7 +625,7 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                         <div className="absolute top-1/2 left-1/4 w-20 h-16 rounded-full bg-gradient-radial from-orange-500/40 via-yellow-500/20 to-transparent blur-md" />
                       </div>
                     )}
-                    <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between">
+                    <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between z-10">
                       <span className="text-[10px] text-white/80 bg-black/50 px-2 py-0.5 rounded font-medium">Grad-CAM</span>
                       <span className="text-[10px] text-white/80 bg-black/50 px-2 py-0.5 rounded">Grade {result.grade} · {result.confidence}%</span>
                     </div>
