@@ -515,18 +515,17 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                   </motion.div>
                 ) : diagnosticStage === "complete" ? (
                   <motion.div key="result-image" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                    className="w-64 h-64 sm:w-72 sm:h-72 rounded-xl bg-foreground/[0.08] border flex items-center justify-center relative"
+                    className="w-full h-full flex items-center justify-center relative"
                     style={{ transform: `scale(${zoom / 100}) translate(${panOffset.x / 4}px, ${panOffset.y / 4}px)`, filter: `brightness(${brightness}%) contrast(${contrast}%)` }}
                   >
-                    <div className="absolute inset-0 rounded-xl overflow-hidden">
-                      <div className={cn("w-full h-full", activeModality === "xray" ? "bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900" : "bg-gradient-to-br from-gray-800 via-gray-700 to-gray-900")}>
-                        <svg className="w-full h-full opacity-30" viewBox="0 0 200 200">
-                          <ellipse cx="100" cy="80" rx="55" ry="40" fill="none" stroke="white" strokeWidth="1" />
-                          <ellipse cx="100" cy="130" rx="50" ry="35" fill="none" stroke="white" strokeWidth="1" />
-                        </svg>
-                      </div>
+                    <div className="absolute inset-0 overflow-hidden">
+                      {uploadedImageUrl ? (
+                        <img src={uploadedImageUrl} alt="Uploaded scan" className="w-full h-full object-contain" draggable={false} />
+                      ) : (
+                        <div className={cn("w-full h-full bg-foreground/[0.08]")} />
+                      )}
                     </div>
-                    <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between">
+                    <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between z-10">
                       <span className="text-[10px] text-white/70 bg-black/40 px-2 py-0.5 rounded truncate">{uploadedFileName}</span>
                       <span className="text-[10px] text-white/70 bg-black/40 px-2 py-0.5 rounded">{selectedView}</span>
                     </div>
