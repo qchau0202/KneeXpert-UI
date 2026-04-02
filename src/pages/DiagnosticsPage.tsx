@@ -86,14 +86,9 @@ function PatientSelector({ onSelect }: { onSelect: (p: Patient) => void }) {
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-              <Stethoscope className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-lg font-semibold">Diagnostic Workspace</h1>
-              <p className="text-xs text-muted-foreground">Select a patient to begin AI-assisted diagnosis</p>
-            </div>
+          <div>
+            <h1 className="text-lg font-semibold">Diagnostic Workspace</h1>
+            <p className="text-xs text-muted-foreground">Select a patient to begin AI-assisted diagnosis</p>
           </div>
           {/* Quick stats */}
           <div className="flex items-center gap-3">
