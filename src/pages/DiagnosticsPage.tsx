@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, Check, X, Sun, Contrast, Maximize2, Layers, Upload, Image, FileImage,
   Loader2, CheckCircle2, Brain, Sparkles, AlertTriangle, User, Calendar,
-  ChevronRight, Search, SlidersHorizontal, Clock, Scan, Info, Activity, Stethoscope
+  ChevronRight, Search, SlidersHorizontal, Clock, Scan
 } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { mockPatients, type Patient, type Modality } from "@/data/patients";
