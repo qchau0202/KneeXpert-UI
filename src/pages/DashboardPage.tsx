@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Search, Plus, TrendingUp, Users, Clock, AlertTriangle, Activity, ArrowUpRight, ArrowDownRight, Scan, FileText, CheckCircle2 } from "lucide-react";
+import { Search, Plus, TrendingUp, Users, Clock, AlertTriangle, ArrowUpRight, ArrowDownRight, Scan, FileText } from "lucide-react";
 import { mockPatients, Patient } from "@/data/patients";
 import { StatusBadge } from "@/components/StatusBadge";
 import { GradeBadge } from "@/components/GradeBadge";
@@ -42,16 +42,6 @@ const confidenceTrend = [
   { month: "Feb", avg: 91.0 },
   { month: "Mar", avg: 91.4 },
 ];
-
-const recentActivity = [
-  { time: "10 min ago", action: "AI analysis completed", patient: "PT-8842", detail: "Grade 3 OA (94.2%)", type: "diagnosis" as const },
-  { time: "25 min ago", action: "New scan uploaded", patient: "PT-4417", detail: "Bilateral AP knee X-ray", type: "scan" as const },
-  { time: "1 hr ago", action: "Report exported", patient: "PT-6105", detail: "PDF sent to orthopedics", type: "report" as const },
-  { time: "2 hrs ago", action: "Grade confirmed", patient: "PT-7291", detail: "Dr. Quốc Châu confirmed Grade 2", type: "confirmed" as const },
-  { time: "3 hrs ago", action: "Case flagged", patient: "PT-5530", detail: "Low confidence - review needed", type: "flagged" as const },
-];
-
-const activityIcons = { diagnosis: Activity, scan: Scan, report: FileText, confirmed: CheckCircle2, flagged: AlertTriangle };
 
 const stats = [
   { label: "Total Patients", value: "127", icon: Users, trend: "+12", up: true },
@@ -165,32 +155,9 @@ export default function DashboardPage() {
             </div>
           </motion.div>
 
-          {/* Activity + Table */}
-          <motion.div variants={item} className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-            {/* Recent Activity */}
-            <div className="card-clinical">
-              <p className="section-header mb-3">Recent Activity</p>
-              <div className="space-y-0">
-                {recentActivity.map((a, i) => {
-                  const Icon = activityIcons[a.type];
-                  return (
-                    <div key={i} className="flex gap-2.5 py-2.5 border-b last:border-0">
-                      <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <Icon className="w-3.5 h-3.5 text-primary" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs font-medium truncate">{a.action}</p>
-                        <p className="text-[11px] text-muted-foreground truncate">{a.detail}</p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">{a.patient} · {a.time}</p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Patient Table */}
-            <div className="card-clinical !p-0 overflow-hidden lg:col-span-3">
+          {/* Patient Table — full width without activity sidebar */}
+          <motion.div variants={item}>
+            <div className="card-clinical !p-0 overflow-hidden">
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 p-4 border-b">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, Check, X, Sun, Contrast, Maximize2, Layers, Upload, Image, FileImage,
   Loader2, CheckCircle2, Brain, Sparkles, AlertTriangle, User, Calendar,
-  ChevronRight, Search, SlidersHorizontal, Clock, Scan, Info, Activity, Stethoscope
+  ChevronRight, Search, SlidersHorizontal, Clock, Scan
 } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { mockPatients, type Patient, type Modality } from "@/data/patients";
@@ -86,14 +86,9 @@ function PatientSelector({ onSelect }: { onSelect: (p: Patient) => void }) {
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-              <Stethoscope className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-lg font-semibold">Diagnostic Workspace</h1>
-              <p className="text-xs text-muted-foreground">Select a patient to begin AI-assisted diagnosis</p>
-            </div>
+          <div>
+            <h1 className="text-lg font-semibold">Diagnostic Workspace</h1>
+            <p className="text-xs text-muted-foreground">Select a patient to begin AI-assisted diagnosis</p>
           </div>
           {/* Quick stats */}
           <div className="flex items-center gap-3">
@@ -274,6 +269,7 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   const [currentStageIndex, setCurrentStageIndex] = useState(0);
   const [stagesCompleted, setStagesCompleted] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
 
   const toolCursor = activeTool === "pan" ? (isPanning ? "grabbing" : "grab") 
     : activeTool === "zoom" ? "zoom-in" 
@@ -331,11 +327,18 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   }, [diagnosticStage, currentStageIndex, stages]);
 
   const handleFileSelect = () => fileInputRef.current?.click();
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (file) startDiagnosticFlow(file.name); };
-  const handleDrop = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(false); const file = e.dataTransfer.files?.[0]; if (file) startDiagnosticFlow(file.name); };
+  const processFile = (file: File) => {
+    startDiagnosticFlow(file.name);
+    if (file.type.startsWith("image/")) {
+      const url = URL.createObjectURL(file);
+      setUploadedImageUrl(url);
+    }
+  };
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (file) processFile(file); };
+  const handleDrop = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(false); const file = e.dataTransfer.files?.[0]; if (file) processFile(file); };
   const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(true); };
   const handleDragLeave = () => setIsDragging(false);
-  const resetDiagnostic = () => { setDiagnosticStage("idle"); setStagesCompleted([]); setCurrentStageIndex(0); setUploadProgress(0); setUploadedFileName(""); setMeasurements([]); setAnnotations([]); setPanOffset({ x: 0, y: 0 }); };
+  const resetDiagnostic = () => { setDiagnosticStage("idle"); setStagesCompleted([]); setCurrentStageIndex(0); setUploadProgress(0); setUploadedFileName(""); setMeasurements([]); setAnnotations([]); setPanOffset({ x: 0, y: 0 }); if (uploadedImageUrl) { URL.revokeObjectURL(uploadedImageUrl); setUploadedImageUrl(null); } };
 
   const isProcessing = diagnosticStage !== "idle" && diagnosticStage !== "complete";
 
@@ -420,10 +423,8 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
       <div className="flex-1 overflow-auto">
         {/* Image workspace */}
         <div className="flex flex-col lg:flex-row">
-          {/* Tools sidebar — desktop only */}
-          <div className="hidden lg:block flex-shrink-0">
-            <DiagnosticsToolbar activeTool={activeTool} setActiveTool={setActiveTool} zoom={zoom} setZoom={setZoom} setBrightness={setBrightness} setContrast={setContrast} />
-          </div>
+          {/* Tools — horizontal on mobile via DiagnosticsToolbar, vertical on desktop */}
+          <DiagnosticsToolbar activeTool={activeTool} setActiveTool={setActiveTool} zoom={zoom} setZoom={setZoom} setBrightness={setBrightness} setContrast={setContrast} />
 
           {/* Original scan panel */}
           <div className="flex-1 border-r border-b flex flex-col">
@@ -509,18 +510,17 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                   </motion.div>
                 ) : diagnosticStage === "complete" ? (
                   <motion.div key="result-image" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                    className="w-64 h-64 sm:w-72 sm:h-72 rounded-xl bg-foreground/[0.08] border flex items-center justify-center relative"
+                    className="w-full h-full flex items-center justify-center relative"
                     style={{ transform: `scale(${zoom / 100}) translate(${panOffset.x / 4}px, ${panOffset.y / 4}px)`, filter: `brightness(${brightness}%) contrast(${contrast}%)` }}
                   >
-                    <div className="absolute inset-0 rounded-xl overflow-hidden">
-                      <div className={cn("w-full h-full", activeModality === "xray" ? "bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900" : "bg-gradient-to-br from-gray-800 via-gray-700 to-gray-900")}>
-                        <svg className="w-full h-full opacity-30" viewBox="0 0 200 200">
-                          <ellipse cx="100" cy="80" rx="55" ry="40" fill="none" stroke="white" strokeWidth="1" />
-                          <ellipse cx="100" cy="130" rx="50" ry="35" fill="none" stroke="white" strokeWidth="1" />
-                        </svg>
-                      </div>
+                    <div className="absolute inset-0 overflow-hidden">
+                      {uploadedImageUrl ? (
+                        <img src={uploadedImageUrl} alt="Uploaded scan" className="w-full h-full object-contain" draggable={false} />
+                      ) : (
+                        <div className={cn("w-full h-full bg-foreground/[0.08]")} />
+                      )}
                     </div>
-                    <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between">
+                    <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between z-10">
                       <span className="text-[10px] text-white/70 bg-black/40 px-2 py-0.5 rounded truncate">{uploadedFileName}</span>
                       <span className="text-[10px] text-white/70 bg-black/40 px-2 py-0.5 rounded">{selectedView}</span>
                     </div>
@@ -611,12 +611,13 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
             <div className="aspect-square max-h-[500px] bg-foreground/[0.02] flex items-center justify-center relative">
               <AnimatePresence mode="wait">
                 {diagnosticStage === "complete" ? (
-                  <motion.div key="gradcam" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-64 h-64 sm:w-72 sm:h-72 rounded-xl relative overflow-hidden">
-                    <div className={cn("absolute inset-0", activeModality === "xray" ? "bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900" : "bg-gradient-to-br from-gray-800 via-gray-700 to-gray-900")}>
-                      <svg className="w-full h-full opacity-20" viewBox="0 0 200 200">
-                        <ellipse cx="100" cy="80" rx="55" ry="40" fill="none" stroke="white" strokeWidth="1" />
-                        <ellipse cx="100" cy="130" rx="50" ry="35" fill="none" stroke="white" strokeWidth="1" />
-                      </svg>
+                  <motion.div key="gradcam" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full h-full relative overflow-hidden">
+                    <div className="absolute inset-0">
+                      {uploadedImageUrl ? (
+                        <img src={uploadedImageUrl} alt="Scan with Grad-CAM overlay" className="w-full h-full object-contain" draggable={false} />
+                      ) : (
+                        <div className="w-full h-full bg-foreground/[0.08]" />
+                      )}
                     </div>
                     {showGradCAM && (
                       <div className="absolute inset-0" style={{ opacity: gradcamOpacity / 100 }}>
@@ -624,7 +625,7 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                         <div className="absolute top-1/2 left-1/4 w-20 h-16 rounded-full bg-gradient-radial from-orange-500/40 via-yellow-500/20 to-transparent blur-md" />
                       </div>
                     )}
-                    <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between">
+                    <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between z-10">
                       <span className="text-[10px] text-white/80 bg-black/50 px-2 py-0.5 rounded font-medium">Grad-CAM</span>
                       <span className="text-[10px] text-white/80 bg-black/50 px-2 py-0.5 rounded">Grade {result.grade} · {result.confidence}%</span>
                     </div>
