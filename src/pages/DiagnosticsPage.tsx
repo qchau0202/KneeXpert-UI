@@ -555,11 +555,41 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                     {/* Drawing overlays — inside transform container */}
                     <svg className="absolute inset-0 w-full h-full pointer-events-none z-20" viewBox="0 0 100 100" preserveAspectRatio="none">
                       {drawingPaths.map(dp => (
-                        <polyline key={dp.id} points={dp.points.map(p => `${p.x},${p.y}`).join(' ')} fill="none" stroke="hsl(var(--destructive))" strokeWidth="0.4" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+                        <polyline key={dp.id} points={dp.points.map(p => `${p.x},${p.y}`).join(' ')} fill="none" stroke={dp.color} strokeWidth={dp.size * 0.15} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
                       ))}
                       {currentDrawPath.length > 1 && (
-                        <polyline points={currentDrawPath.map(p => `${p.x},${p.y}`).join(' ')} fill="none" stroke="hsl(var(--destructive))" strokeWidth="0.4" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" vectorEffect="non-scaling-stroke" />
+                        <polyline points={currentDrawPath.map(p => `${p.x},${p.y}`).join(' ')} fill="none" stroke={drawColor} strokeWidth={drawSize * 0.15} strokeLinecap="round" strokeLinejoin="round" opacity="0.7" vectorEffect="non-scaling-stroke" />
                       )}
+                    </svg>
+
+                    {/* Pen options floating panel */}
+                    {activeTool === "draw" && diagnosticStage === "complete" && (
+                      <div className="absolute top-3 left-3 z-30 bg-background/95 backdrop-blur-sm border rounded-xl p-2.5 shadow-lg space-y-2 w-[160px]">
+                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Pen Color</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {penColors.map(c => (
+                            <button
+                              key={c.id}
+                              onClick={(e) => { e.stopPropagation(); setDrawColor(c.value); }}
+                              className={cn("w-6 h-6 rounded-full border-2 transition-all", drawColor === c.value ? "border-foreground scale-110 shadow-sm" : "border-transparent hover:scale-105")}
+                              style={{ backgroundColor: c.value }}
+                              title={c.label}
+                            />
+                          ))}
+                        </div>
+                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider pt-1">Size · {drawSize}px</p>
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: drawColor }} />
+                          <input
+                            type="range" min="1" max="10" value={drawSize}
+                            onChange={e => { e.stopPropagation(); setDrawSize(parseInt(e.target.value)); }}
+                            className="flex-1 accent-primary h-1 cursor-pointer"
+                            onClick={e => e.stopPropagation()}
+                          />
+                          <div className="rounded-full" style={{ backgroundColor: drawColor, width: `${Math.max(drawSize * 1.5, 4)}px`, height: `${Math.max(drawSize * 1.5, 4)}px` }} />
+                        </div>
+                      </div>
+                    )}
                     </svg>
 
                     {/* Annotation overlays — inside transform container */}
