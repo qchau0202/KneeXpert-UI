@@ -76,14 +76,9 @@ export default function ReportsHubPage() {
       <motion.div variants={anim} initial="hidden" animate="visible" className="p-4 sm:p-6 space-y-5 max-w-[1400px] mx-auto">
         {/* Header */}
         <motion.div variants={item} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
-              <FileText className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-xl font-semibold tracking-tight">Reports</h1>
-              <p className="text-xs text-muted-foreground">Clinical diagnostic reports & documentation</p>
-            </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">Reports</h1>
+            <p className="text-xs text-muted-foreground mt-0.5">Clinical diagnostic reports & documentation</p>
           </div>
           <button className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium hover:bg-muted transition-colors self-start">
             <Download className="w-4 h-4" />Batch Export
