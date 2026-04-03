@@ -590,7 +590,6 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                         </div>
                       </div>
                     )}
-                    </svg>
 
                     {/* Annotation overlays — inside transform container */}
                     {annotations.map(a => (
