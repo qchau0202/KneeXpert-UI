@@ -258,6 +258,9 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   const [measurements, setMeasurements] = useState<{ id: string; x1: number; y1: number; x2: number; y2: number }[]>([]);
   const [measureStart, setMeasureStart] = useState<{ x: number; y: number } | null>(null);
   const [annotations, setAnnotations] = useState<{ id: string; x: number; y: number; label: string }[]>([]);
+  const [drawingPaths, setDrawingPaths] = useState<{ id: string; points: { x: number; y: number }[] }[]>([]);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [currentDrawPath, setCurrentDrawPath] = useState<{ x: number; y: number }[]>([]);
   const [overrideGrade, setOverrideGrade] = useState<number | null>(null);
   const [showOverridePanel, setShowOverridePanel] = useState(false);
   const [overrideNotes, setOverrideNotes] = useState("");
@@ -338,31 +341,55 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   const handleDrop = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(false); const file = e.dataTransfer.files?.[0]; if (file) processFile(file); };
   const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(true); };
   const handleDragLeave = () => setIsDragging(false);
-  const resetDiagnostic = () => { setDiagnosticStage("idle"); setStagesCompleted([]); setCurrentStageIndex(0); setUploadProgress(0); setUploadedFileName(""); setMeasurements([]); setAnnotations([]); setPanOffset({ x: 0, y: 0 }); if (uploadedImageUrl) { URL.revokeObjectURL(uploadedImageUrl); setUploadedImageUrl(null); } };
+  const resetDiagnostic = () => { setDiagnosticStage("idle"); setStagesCompleted([]); setCurrentStageIndex(0); setUploadProgress(0); setUploadedFileName(""); setMeasurements([]); setAnnotations([]); setDrawingPaths([]); setCurrentDrawPath([]); setPanOffset({ x: 0, y: 0 }); setZoom(100); if (uploadedImageUrl) { URL.revokeObjectURL(uploadedImageUrl); setUploadedImageUrl(null); } };
 
   const isProcessing = diagnosticStage !== "idle" && diagnosticStage !== "complete";
 
   const getRelativePos = (e: React.MouseEvent) => {
     const rect = imageContainerRef.current?.getBoundingClientRect();
     if (!rect) return { x: 0, y: 0 };
-    return { x: ((e.clientX - rect.left) / rect.width) * 100, y: ((e.clientY - rect.top) / rect.height) * 100 };
+    const scale = zoom / 100;
+    // Center of container
+    const cx = rect.width / 2;
+    const cy = rect.height / 2;
+    // Mouse position relative to container
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    // Reverse the transform: translate then scale from center
+    const imgX = ((mx - cx - panOffset.x / 4) / scale + cx) / rect.width * 100;
+    const imgY = ((my - cy - panOffset.y / 4) / scale + cy) / rect.height * 100;
+    return { x: imgX, y: imgY };
   };
 
   const handleImageMouseDown = (e: React.MouseEvent) => {
     if (activeTool === "pan") {
       setIsPanning(true);
       setPanStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
+    } else if (activeTool === "draw" && diagnosticStage === "complete") {
+      setIsDrawing(true);
+      const pos = getRelativePos(e);
+      setCurrentDrawPath([pos]);
     }
   };
 
   const handleImageMouseMove = (e: React.MouseEvent) => {
     if (activeTool === "pan" && isPanning) {
       setPanOffset({ x: e.clientX - panStart.x, y: e.clientY - panStart.y });
+    } else if (activeTool === "draw" && isDrawing) {
+      const pos = getRelativePos(e);
+      setCurrentDrawPath(prev => [...prev, pos]);
     }
   };
 
   const handleImageMouseUp = () => {
     if (activeTool === "pan") setIsPanning(false);
+    if (activeTool === "draw" && isDrawing) {
+      setIsDrawing(false);
+      if (currentDrawPath.length > 1) {
+        setDrawingPaths(prev => [...prev, { id: `d${Date.now()}`, points: currentDrawPath }]);
+      }
+      setCurrentDrawPath([]);
+    }
   };
 
   const handleImageClick = (e: React.MouseEvent) => {
@@ -509,6 +536,16 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                         <circle cx={`${measureStart.x}%`} cy={`${measureStart.y}%`} r="4" fill="hsl(var(--primary))" opacity="0.7">
                           <animate attributeName="r" values="3;5;3" dur="1s" repeatCount="indefinite" />
                         </circle>
+                      )}
+                    </svg>
+
+                    {/* Drawing overlays — inside transform container */}
+                    <svg className="absolute inset-0 w-full h-full pointer-events-none z-20" viewBox="0 0 100 100" preserveAspectRatio="none">
+                      {drawingPaths.map(dp => (
+                        <polyline key={dp.id} points={dp.points.map(p => `${p.x},${p.y}`).join(' ')} fill="none" stroke="hsl(var(--destructive))" strokeWidth="0.4" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+                      ))}
+                      {currentDrawPath.length > 1 && (
+                        <polyline points={currentDrawPath.map(p => `${p.x},${p.y}`).join(' ')} fill="none" stroke="hsl(var(--destructive))" strokeWidth="0.4" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" vectorEffect="non-scaling-stroke" />
                       )}
                     </svg>
 
