@@ -258,9 +258,22 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   const [measurements, setMeasurements] = useState<{ id: string; x1: number; y1: number; x2: number; y2: number }[]>([]);
   const [measureStart, setMeasureStart] = useState<{ x: number; y: number } | null>(null);
   const [annotations, setAnnotations] = useState<{ id: string; x: number; y: number; label: string }[]>([]);
-  const [drawingPaths, setDrawingPaths] = useState<{ id: string; points: { x: number; y: number }[] }[]>([]);
+  const [drawingPaths, setDrawingPaths] = useState<{ id: string; points: { x: number; y: number }[]; color: string; size: number }[]>([]);
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentDrawPath, setCurrentDrawPath] = useState<{ x: number; y: number }[]>([]);
+  const [drawColor, setDrawColor] = useState("#ef4444");
+  const [drawSize, setDrawSize] = useState(2);
+
+  const penColors = [
+    { id: "red", value: "#ef4444", label: "Red" },
+    { id: "blue", value: "#3b82f6", label: "Blue" },
+    { id: "green", value: "#22c55e", label: "Green" },
+    { id: "yellow", value: "#eab308", label: "Yellow" },
+    { id: "orange", value: "#f97316", label: "Orange" },
+    { id: "purple", value: "#a855f7", label: "Purple" },
+    { id: "cyan", value: "#06b6d4", label: "Cyan" },
+    { id: "white", value: "#ffffff", label: "White" },
+  ];
   const [overrideGrade, setOverrideGrade] = useState<number | null>(null);
   const [showOverridePanel, setShowOverridePanel] = useState(false);
   const [overrideNotes, setOverrideNotes] = useState("");
