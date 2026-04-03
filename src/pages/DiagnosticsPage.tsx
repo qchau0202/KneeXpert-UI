@@ -365,17 +365,31 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
     if (activeTool === "pan") {
       setIsPanning(true);
       setPanStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
+    } else if (activeTool === "draw" && diagnosticStage === "complete") {
+      setIsDrawing(true);
+      const pos = getRelativePos(e);
+      setCurrentDrawPath([pos]);
     }
   };
 
   const handleImageMouseMove = (e: React.MouseEvent) => {
     if (activeTool === "pan" && isPanning) {
       setPanOffset({ x: e.clientX - panStart.x, y: e.clientY - panStart.y });
+    } else if (activeTool === "draw" && isDrawing) {
+      const pos = getRelativePos(e);
+      setCurrentDrawPath(prev => [...prev, pos]);
     }
   };
 
   const handleImageMouseUp = () => {
     if (activeTool === "pan") setIsPanning(false);
+    if (activeTool === "draw" && isDrawing) {
+      setIsDrawing(false);
+      if (currentDrawPath.length > 1) {
+        setDrawingPaths(prev => [...prev, { id: `d${Date.now()}`, points: currentDrawPath }]);
+      }
+      setCurrentDrawPath([]);
+    }
   };
 
   const handleImageClick = (e: React.MouseEvent) => {
