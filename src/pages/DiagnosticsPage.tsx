@@ -348,7 +348,17 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   const getRelativePos = (e: React.MouseEvent) => {
     const rect = imageContainerRef.current?.getBoundingClientRect();
     if (!rect) return { x: 0, y: 0 };
-    return { x: ((e.clientX - rect.left) / rect.width) * 100, y: ((e.clientY - rect.top) / rect.height) * 100 };
+    const scale = zoom / 100;
+    // Center of container
+    const cx = rect.width / 2;
+    const cy = rect.height / 2;
+    // Mouse position relative to container
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    // Reverse the transform: translate then scale from center
+    const imgX = ((mx - cx - panOffset.x / 4) / scale + cx) / rect.width * 100;
+    const imgY = ((my - cy - panOffset.y / 4) / scale + cy) / rect.height * 100;
+    return { x: imgX, y: imgY };
   };
 
   const handleImageMouseDown = (e: React.MouseEvent) => {
