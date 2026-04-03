@@ -564,7 +564,7 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
 
                     {/* Pen options floating panel */}
                     {activeTool === "draw" && diagnosticStage === "complete" && (
-                      <div className="absolute top-3 left-3 z-30 bg-background/95 backdrop-blur-sm border rounded-xl p-2.5 shadow-lg space-y-2 w-[160px]">
+                      <div className="absolute top-3 left-3 z-30 bg-background/95 backdrop-blur-sm border rounded-xl p-2.5 shadow-lg space-y-2 w-[160px]" onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
                         <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Pen Color</p>
                         <div className="flex flex-wrap gap-1.5">
                           {penColors.map(c => (
