@@ -539,6 +539,16 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                       )}
                     </svg>
 
+                    {/* Drawing overlays — inside transform container */}
+                    <svg className="absolute inset-0 w-full h-full pointer-events-none z-20" viewBox="0 0 100 100" preserveAspectRatio="none">
+                      {drawingPaths.map(dp => (
+                        <polyline key={dp.id} points={dp.points.map(p => `${p.x},${p.y}`).join(' ')} fill="none" stroke="hsl(var(--destructive))" strokeWidth="0.4" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+                      ))}
+                      {currentDrawPath.length > 1 && (
+                        <polyline points={currentDrawPath.map(p => `${p.x},${p.y}`).join(' ')} fill="none" stroke="hsl(var(--destructive))" strokeWidth="0.4" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" vectorEffect="non-scaling-stroke" />
+                      )}
+                    </svg>
+
                     {/* Annotation overlays — inside transform container */}
                     {annotations.map(a => (
                       <div key={a.id} className="absolute z-20 pointer-events-none" style={{ left: `${a.x}%`, top: `${a.y}%`, transform: "translate(-50%, -50%)" }}>
