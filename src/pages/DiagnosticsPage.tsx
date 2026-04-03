@@ -258,6 +258,9 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   const [measurements, setMeasurements] = useState<{ id: string; x1: number; y1: number; x2: number; y2: number }[]>([]);
   const [measureStart, setMeasureStart] = useState<{ x: number; y: number } | null>(null);
   const [annotations, setAnnotations] = useState<{ id: string; x: number; y: number; label: string }[]>([]);
+  const [drawingPaths, setDrawingPaths] = useState<{ id: string; points: { x: number; y: number }[] }[]>([]);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [currentDrawPath, setCurrentDrawPath] = useState<{ x: number; y: number }[]>([]);
   const [overrideGrade, setOverrideGrade] = useState<number | null>(null);
   const [showOverridePanel, setShowOverridePanel] = useState(false);
   const [overrideNotes, setOverrideNotes] = useState("");
