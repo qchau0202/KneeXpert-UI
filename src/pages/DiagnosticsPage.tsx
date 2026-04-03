@@ -399,7 +399,7 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
     if (activeTool === "draw" && isDrawing) {
       setIsDrawing(false);
       if (currentDrawPath.length > 1) {
-        setDrawingPaths(prev => [...prev, { id: `d${Date.now()}`, points: currentDrawPath }]);
+        setDrawingPaths(prev => [...prev, { id: `d${Date.now()}`, points: currentDrawPath, color: drawColor, size: drawSize }]);
       }
       setCurrentDrawPath([]);
     }
