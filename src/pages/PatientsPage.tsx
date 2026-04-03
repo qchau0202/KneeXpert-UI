@@ -37,14 +37,9 @@ export default function PatientsPage() {
         <motion.div variants={anim} initial="hidden" animate="visible" className="p-4 sm:p-6 space-y-5 max-w-[1200px] mx-auto">
           {/* Header */}
           <motion.div variants={item} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
-                <Users className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <h1 className="text-xl font-semibold tracking-tight">Patients</h1>
-                <p className="text-xs text-muted-foreground">Electronic Health Records & Case Management</p>
-              </div>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">Patients</h1>
+              <p className="text-xs text-muted-foreground mt-0.5">Electronic Health Records & Case Management</p>
             </div>
             <button
               onClick={() => setShowAddPatient(true)}

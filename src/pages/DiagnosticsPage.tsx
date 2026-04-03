@@ -87,8 +87,8 @@ function PatientSelector({ onSelect }: { onSelect: (p: Patient) => void }) {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-lg font-semibold">Diagnostic Workspace</h1>
-            <p className="text-xs text-muted-foreground">Select a patient to begin AI-assisted diagnosis</p>
+            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">Diagnostic Workspace</h1>
+            <p className="text-xs text-muted-foreground mt-0.5">Select a patient to begin AI-assisted diagnosis</p>
           </div>
           {/* Quick stats */}
           <div className="flex items-center gap-3">
