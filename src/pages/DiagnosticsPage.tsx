@@ -258,9 +258,22 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   const [measurements, setMeasurements] = useState<{ id: string; x1: number; y1: number; x2: number; y2: number }[]>([]);
   const [measureStart, setMeasureStart] = useState<{ x: number; y: number } | null>(null);
   const [annotations, setAnnotations] = useState<{ id: string; x: number; y: number; label: string }[]>([]);
-  const [drawingPaths, setDrawingPaths] = useState<{ id: string; points: { x: number; y: number }[] }[]>([]);
+  const [drawingPaths, setDrawingPaths] = useState<{ id: string; points: { x: number; y: number }[]; color: string; size: number }[]>([]);
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentDrawPath, setCurrentDrawPath] = useState<{ x: number; y: number }[]>([]);
+  const [drawColor, setDrawColor] = useState("#ef4444");
+  const [drawSize, setDrawSize] = useState(2);
+
+  const penColors = [
+    { id: "red", value: "#ef4444", label: "Red" },
+    { id: "blue", value: "#3b82f6", label: "Blue" },
+    { id: "green", value: "#22c55e", label: "Green" },
+    { id: "yellow", value: "#eab308", label: "Yellow" },
+    { id: "orange", value: "#f97316", label: "Orange" },
+    { id: "purple", value: "#a855f7", label: "Purple" },
+    { id: "cyan", value: "#06b6d4", label: "Cyan" },
+    { id: "white", value: "#ffffff", label: "White" },
+  ];
   const [overrideGrade, setOverrideGrade] = useState<number | null>(null);
   const [showOverridePanel, setShowOverridePanel] = useState(false);
   const [overrideNotes, setOverrideNotes] = useState("");
@@ -386,7 +399,7 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
     if (activeTool === "draw" && isDrawing) {
       setIsDrawing(false);
       if (currentDrawPath.length > 1) {
-        setDrawingPaths(prev => [...prev, { id: `d${Date.now()}`, points: currentDrawPath }]);
+        setDrawingPaths(prev => [...prev, { id: `d${Date.now()}`, points: currentDrawPath, color: drawColor, size: drawSize }]);
       }
       setCurrentDrawPath([]);
     }
@@ -542,12 +555,41 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                     {/* Drawing overlays — inside transform container */}
                     <svg className="absolute inset-0 w-full h-full pointer-events-none z-20" viewBox="0 0 100 100" preserveAspectRatio="none">
                       {drawingPaths.map(dp => (
-                        <polyline key={dp.id} points={dp.points.map(p => `${p.x},${p.y}`).join(' ')} fill="none" stroke="hsl(var(--destructive))" strokeWidth="0.4" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+                        <polyline key={dp.id} points={dp.points.map(p => `${p.x},${p.y}`).join(' ')} fill="none" stroke={dp.color} strokeWidth={dp.size * 0.15} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
                       ))}
                       {currentDrawPath.length > 1 && (
-                        <polyline points={currentDrawPath.map(p => `${p.x},${p.y}`).join(' ')} fill="none" stroke="hsl(var(--destructive))" strokeWidth="0.4" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" vectorEffect="non-scaling-stroke" />
+                        <polyline points={currentDrawPath.map(p => `${p.x},${p.y}`).join(' ')} fill="none" stroke={drawColor} strokeWidth={drawSize * 0.15} strokeLinecap="round" strokeLinejoin="round" opacity="0.7" vectorEffect="non-scaling-stroke" />
                       )}
                     </svg>
+
+                    {/* Pen options floating panel */}
+                    {activeTool === "draw" && diagnosticStage === "complete" && (
+                      <div className="absolute top-3 left-3 z-30 bg-background/95 backdrop-blur-sm border rounded-xl p-2.5 shadow-lg space-y-2 w-[160px]" onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
+                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Pen Color</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {penColors.map(c => (
+                            <button
+                              key={c.id}
+                              onClick={(e) => { e.stopPropagation(); setDrawColor(c.value); }}
+                              className={cn("w-6 h-6 rounded-full border-2 transition-all", drawColor === c.value ? "border-foreground scale-110 shadow-sm" : "border-transparent hover:scale-105")}
+                              style={{ backgroundColor: c.value }}
+                              title={c.label}
+                            />
+                          ))}
+                        </div>
+                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider pt-1">Size · {drawSize}px</p>
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: drawColor }} />
+                          <input
+                            type="range" min="1" max="10" value={drawSize}
+                            onChange={e => { e.stopPropagation(); setDrawSize(parseInt(e.target.value)); }}
+                            className="flex-1 accent-primary h-1 cursor-pointer"
+                            onClick={e => e.stopPropagation()}
+                          />
+                          <div className="rounded-full" style={{ backgroundColor: drawColor, width: `${Math.max(drawSize * 1.5, 4)}px`, height: `${Math.max(drawSize * 1.5, 4)}px` }} />
+                        </div>
+                      </div>
+                    )}
 
                     {/* Annotation overlays — inside transform container */}
                     {annotations.map(a => (
