@@ -1206,7 +1206,7 @@ export default function DiagnosticsPage() {
         {selectedPatient ? (
           <DiagnosticWorkspace key="workspace" patient={selectedPatient} onBack={handleBack} />
         ) : (
-          <PatientSelector key="selector" onSelect={handleSelect} />
+          <PatientSelector key="selector" onSelect={handleSelect} onBatchSelect={(patients) => { if (patients.length > 0) handleSelect(patients[0]); }} />
         )}
       </AnimatePresence>
     </motion.div>
