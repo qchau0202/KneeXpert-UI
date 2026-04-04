@@ -30,11 +30,8 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>("notifications");
   const { theme, setTheme } = useTheme();
 
-  // Profile
-  const [doctorName, setDoctorName] = useState("Dr. Quốc Châu");
-  const [specialty, setSpecialty] = useState("Orthopedic Radiology");
-  const [institution, setInstitution] = useState("Hanoi Medical University Hospital");
-  const [email, setEmail] = useState("chau.nguyen@hmu.edu.vn");
+
+  // Notifications
 
   // Notifications
   const [notifyNewScan, setNotifyNewScan] = useState(true);
