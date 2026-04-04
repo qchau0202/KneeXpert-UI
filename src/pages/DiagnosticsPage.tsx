@@ -608,6 +608,89 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                       </div>
                     ))}
 
+                    {/* Text box overlays */}
+                    {textBoxes.map(tb => (
+                      <div
+                        key={tb.id}
+                        className="absolute z-25 group"
+                        style={{ left: `${tb.x}%`, top: `${tb.y}%`, transform: `translate(-50%, -50%) rotate(${tb.rotation}deg)` }}
+                        onClick={e => { e.stopPropagation(); setEditingTextId(tb.id); setActiveTool("text"); }}
+                        onMouseDown={e => e.stopPropagation()}
+                      >
+                        {editingTextId === tb.id ? (
+                          <div className="relative">
+                            <input
+                              autoFocus
+                              value={tb.text}
+                              onChange={e => setTextBoxes(prev => prev.map(t => t.id === tb.id ? { ...t, text: e.target.value } : t))}
+                              onKeyDown={e => { if (e.key === "Enter") setEditingTextId(null); }}
+                              onBlur={() => setEditingTextId(null)}
+                              className="bg-transparent border border-dashed border-white/60 px-1.5 py-0.5 text-white outline-none min-w-[60px]"
+                              style={{ color: tb.color, fontSize: `${tb.fontSize}px`, fontWeight: 600 }}
+                              onClick={e => e.stopPropagation()}
+                            />
+                            {/* Rotation handle */}
+                            <div className="absolute -top-6 left-1/2 -translate-x-1/2 flex items-center gap-1">
+                              <button
+                                onClick={e => { e.stopPropagation(); setTextBoxes(prev => prev.map(t => t.id === tb.id ? { ...t, rotation: t.rotation - 15 } : t)); }}
+                                className="w-5 h-5 rounded bg-background/90 border flex items-center justify-center text-[10px] hover:bg-muted"
+                              ><RotateCw className="w-3 h-3 scale-x-[-1]" /></button>
+                              <span className="text-[9px] text-white/70 bg-black/50 px-1 rounded">{tb.rotation}°</span>
+                              <button
+                                onClick={e => { e.stopPropagation(); setTextBoxes(prev => prev.map(t => t.id === tb.id ? { ...t, rotation: t.rotation + 15 } : t)); }}
+                                className="w-5 h-5 rounded bg-background/90 border flex items-center justify-center text-[10px] hover:bg-muted"
+                              ><RotateCw className="w-3 h-3" /></button>
+                              <button
+                                onClick={e => { e.stopPropagation(); setTextBoxes(prev => prev.filter(t => t.id !== tb.id)); setEditingTextId(null); }}
+                                className="w-5 h-5 rounded bg-destructive/90 flex items-center justify-center text-[10px] text-white hover:bg-destructive"
+                              ><X className="w-3 h-3" /></button>
+                            </div>
+                          </div>
+                        ) : (
+                          <span
+                            className="cursor-pointer select-none drop-shadow-md hover:ring-1 hover:ring-white/40 rounded px-1"
+                            style={{ color: tb.color, fontSize: `${tb.fontSize}px`, fontWeight: 600 }}
+                          >{tb.text}</span>
+                        )}
+                      </div>
+                    ))}
+
+                    {/* Text tool options panel */}
+                    {activeTool === "text" && diagnosticStage === "complete" && (
+                      <div className="absolute top-3 left-3 z-30 bg-background/95 backdrop-blur-sm border rounded-xl p-2.5 shadow-lg space-y-2 w-[170px]" onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
+                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Text Color</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {penColors.map(c => (
+                            <button
+                              key={c.id}
+                              onClick={e => { e.stopPropagation(); setTextColor(c.value); if (editingTextId) setTextBoxes(prev => prev.map(t => t.id === editingTextId ? { ...t, color: c.value } : t)); }}
+                              className={cn("w-6 h-6 rounded-full border-2 transition-all", textColor === c.value ? "border-foreground scale-110 shadow-sm" : "border-transparent hover:scale-105")}
+                              style={{ backgroundColor: c.value }}
+                              title={c.label}
+                            />
+                          ))}
+                        </div>
+                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider pt-1">Font Size · {textFontSize}px</p>
+                        <input
+                          type="range" min="8" max="36" value={textFontSize}
+                          onChange={e => { const v = parseInt(e.target.value); setTextFontSize(v); if (editingTextId) setTextBoxes(prev => prev.map(t => t.id === editingTextId ? { ...t, fontSize: v } : t)); }}
+                          className="w-full accent-primary h-1 cursor-pointer"
+                          onClick={e => e.stopPropagation()}
+                        />
+                        {editingTextId && (
+                          <>
+                            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider pt-1">Rotation</p>
+                            <input
+                              type="range" min="-180" max="180" value={textBoxes.find(t => t.id === editingTextId)?.rotation ?? 0}
+                              onChange={e => { const v = parseInt(e.target.value); setTextBoxes(prev => prev.map(t => t.id === editingTextId ? { ...t, rotation: v } : t)); }}
+                              className="w-full accent-primary h-1 cursor-pointer"
+                              onClick={e => e.stopPropagation()}
+                            />
+                          </>
+                        )}
+                      </div>
+                    )}
+
                     <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between z-10">
                       <span className="text-[10px] text-white/70 bg-black/40 px-2 py-0.5 rounded truncate">{uploadedFileName}</span>
                       <span className="text-[10px] text-white/70 bg-black/40 px-2 py-0.5 rounded">{selectedView}</span>
