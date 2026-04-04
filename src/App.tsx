@@ -12,6 +12,7 @@ import DiagnosticsPage from "./pages/DiagnosticsPage";
 import ReportsHubPage from "./pages/ReportsHubPage";
 import ReportDetailPage from "./pages/ReportDetailPage";
 import SettingsPage from "./pages/SettingsPage";
+import ProfilePage from "./pages/ProfilePage";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
 import AdminLoginPage from "./pages/AdminLoginPage";
