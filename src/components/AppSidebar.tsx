@@ -98,15 +98,21 @@ function SidebarContent({ collapsed, onNavigate, onToggle }: { collapsed: boolea
       {/* User section */}
       <div className="border-t border-sidebar-border p-3 flex-shrink-0">
         <div className={cn("flex items-center gap-3", collapsed && "justify-center")}>
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/80 to-primary flex items-center justify-center flex-shrink-0">
-            <User className="w-4 h-4 text-primary-foreground" />
-          </div>
-          {!collapsed && (
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-sidebar-accent-foreground truncate">Dr. Quốc Châu</p>
-              <p className="text-[10px] text-sidebar-foreground/60 truncate">Radiologist</p>
+          <button
+            onClick={() => { navigate("/profile"); onNavigate?.(); }}
+            className={cn("flex items-center gap-3 flex-1 min-w-0 rounded-lg p-1 -m-1 hover:bg-sidebar-accent/50 transition-colors", collapsed && "justify-center")}
+            title="View Profile"
+          >
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/80 to-primary flex items-center justify-center flex-shrink-0">
+              <User className="w-4 h-4 text-primary-foreground" />
             </div>
-          )}
+            {!collapsed && (
+              <div className="flex-1 min-w-0 text-left">
+                <p className="text-xs font-medium text-sidebar-accent-foreground truncate">Dr. Quốc Châu</p>
+                <p className="text-[10px] text-sidebar-foreground/60 truncate">Radiologist</p>
+              </div>
+            )}
+          </button>
           {!collapsed && (
             <button
               onClick={() => navigate("/login")}
