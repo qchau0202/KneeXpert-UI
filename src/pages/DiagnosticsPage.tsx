@@ -419,13 +419,16 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
       if (!measureStart) {
         setMeasureStart(pos);
       } else {
-        const dist = Math.sqrt(Math.pow(pos.x - measureStart.x, 2) + Math.pow(pos.y - measureStart.y, 2));
         setMeasurements(prev => [...prev, { id: `m${Date.now()}`, x1: measureStart.x, y1: measureStart.y, x2: pos.x, y2: pos.y }]);
         setMeasureStart(null);
       }
     } else if (activeTool === "annotate") {
       const label = `A${annotations.length + 1}`;
       setAnnotations(prev => [...prev, { id: `a${Date.now()}`, x: pos.x, y: pos.y, label }]);
+    } else if (activeTool === "text") {
+      const newId = `t${Date.now()}`;
+      setTextBoxes(prev => [...prev, { id: newId, x: pos.x, y: pos.y, text: "Text", color: textColor, fontSize: textFontSize, rotation: 0 }]);
+      setEditingTextId(newId);
     }
   };
 
