@@ -27,7 +27,7 @@ const tabs: { id: SettingsTab; label: string; icon: any }[] = [
 ];
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
+  const [activeTab, setActiveTab] = useState<SettingsTab>("notifications");
   const { theme, setTheme } = useTheme();
 
   // Profile
