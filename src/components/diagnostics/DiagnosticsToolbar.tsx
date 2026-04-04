@@ -1,4 +1,4 @@
-import { Move, ZoomIn, ZoomOut, Ruler, Crosshair, RotateCcw, Pencil, MousePointer } from "lucide-react";
+import { Move, ZoomIn, ZoomOut, Ruler, Crosshair, RotateCcw, Pencil, MousePointer, Type } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface DiagnosticsToolbarProps {
@@ -19,6 +19,7 @@ const tools = [
   { id: "measure", icon: Ruler, label: "Measure", desc: "Click two points to measure distance" },
   { id: "annotate", icon: Crosshair, label: "Annotate", desc: "Click to place a marker" },
   { id: "draw", icon: Pencil, label: "Draw", desc: "Freehand drawing on scan" },
+  { id: "text", icon: Type, label: "Text", desc: "Click to place a text box" },
 ];
 
 export function DiagnosticsToolbar({
