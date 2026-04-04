@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { useTheme } from "@/components/ThemeProvider";
 import {
-  User, Bell, Shield, Monitor, Palette,
+  Bell, Shield, Monitor, Palette,
   ToggleLeft, ToggleRight, Check, Lock, HardDrive, Trash2, BookOpen
 } from "lucide-react";
 import { resetTutorial } from "@/components/TutorialOverlay";
