@@ -264,6 +264,10 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   const [currentDrawPath, setCurrentDrawPath] = useState<{ x: number; y: number }[]>([]);
   const [drawColor, setDrawColor] = useState("#ef4444");
   const [drawSize, setDrawSize] = useState(2);
+  const [textBoxes, setTextBoxes] = useState<{ id: string; x: number; y: number; text: string; color: string; fontSize: number; rotation: number }[]>([]);
+  const [editingTextId, setEditingTextId] = useState<string | null>(null);
+  const [textColor, setTextColor] = useState("#ffffff");
+  const [textFontSize, setTextFontSize] = useState(14);
 
   const penColors = [
     { id: "red", value: "#ef4444", label: "Red" },
