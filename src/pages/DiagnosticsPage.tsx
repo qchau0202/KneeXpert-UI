@@ -360,7 +360,7 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   const handleDrop = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(false); const file = e.dataTransfer.files?.[0]; if (file) processFile(file); };
   const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(true); };
   const handleDragLeave = () => setIsDragging(false);
-  const resetDiagnostic = () => { setDiagnosticStage("idle"); setStagesCompleted([]); setCurrentStageIndex(0); setUploadProgress(0); setUploadedFileName(""); setMeasurements([]); setAnnotations([]); setDrawingPaths([]); setCurrentDrawPath([]); setPanOffset({ x: 0, y: 0 }); setZoom(100); if (uploadedImageUrl) { URL.revokeObjectURL(uploadedImageUrl); setUploadedImageUrl(null); } };
+  const resetDiagnostic = () => { setDiagnosticStage("idle"); setStagesCompleted([]); setCurrentStageIndex(0); setUploadProgress(0); setUploadedFileName(""); setMeasurements([]); setAnnotations([]); setDrawingPaths([]); setCurrentDrawPath([]); setTextBoxes([]); setEditingTextId(null); setPanOffset({ x: 0, y: 0 }); setZoom(100); if (uploadedImageUrl) { URL.revokeObjectURL(uploadedImageUrl); setUploadedImageUrl(null); } };
 
   const isProcessing = diagnosticStage !== "idle" && diagnosticStage !== "complete";
 
