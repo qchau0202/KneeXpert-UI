@@ -84,48 +84,6 @@ export default function SettingsPage() {
 
           {/* Content */}
           <div className="flex-1 min-w-0 space-y-6">
-            {/* Profile */}
-            {activeTab === "profile" && (
-              <div className="card-clinical">
-                <p className="text-sm font-medium mb-4">Doctor Profile</p>
-                <div className="flex items-center gap-4 mb-6 p-4 rounded-lg bg-primary-muted/30 border">
-                  <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xl font-medium">QC</div>
-                  <div>
-                    <p className="text-lg font-medium">{doctorName}</p>
-                    <p className="text-sm text-muted-foreground">{specialty}</p>
-                    <p className="text-xs text-muted-foreground">{institution}</p>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Full Name</label>
-                      <input value={doctorName} onChange={e => setDoctorName(e.target.value)} className="w-full px-3 py-2 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" />
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Specialty</label>
-                      <input value={specialty} onChange={e => setSpecialty(e.target.value)} className="w-full px-3 py-2 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Institution</label>
-                    <input value={institution} onChange={e => setInstitution(e.target.value)} className="w-full px-3 py-2 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Email</label>
-                    <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full px-3 py-2 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Medical License Number</label>
-                    <input defaultValue="VN-RAD-2015-08842" className="w-full px-3 py-2 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" />
-                  </div>
-                </div>
-                <button className="mt-4 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
-                  Save Profile
-                </button>
-              </div>
-            )}
-
             {/* Notifications */}
             {activeTab === "notifications" && (
               <div className="card-clinical">
