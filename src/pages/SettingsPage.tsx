@@ -158,7 +158,7 @@ export default function SettingsPage() {
                   <div className="p-3 rounded-lg border">
                     <p className="text-sm font-medium mb-2">Theme</p>
                     <div className="flex gap-2">
-                      {["light", "dark", "system"].map(t => (
+                      {(["light", "dark", "system"] as const).map(t => (
                         <button
                           key={t}
                           onClick={() => setTheme(t)}
