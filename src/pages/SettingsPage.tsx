@@ -17,10 +17,9 @@ const itemVariants = {
   visible: { opacity: 1, y: 0 },
 };
 
-type SettingsTab = "profile" | "notifications" | "appearance" | "security" | "system";
+type SettingsTab = "notifications" | "appearance" | "security" | "system";
 
 const tabs: { id: SettingsTab; label: string; icon: any }[] = [
-  { id: "profile", label: "Doctor Profile", icon: User },
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "appearance", label: "Appearance", icon: Palette },
   { id: "security", label: "Security & Privacy", icon: Shield },
