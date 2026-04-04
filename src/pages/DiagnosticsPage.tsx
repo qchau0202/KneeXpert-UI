@@ -297,6 +297,7 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
     : activeTool === "measure" ? "crosshair" 
     : activeTool === "annotate" ? "crosshair" 
     : activeTool === "draw" ? "crosshair" 
+    : activeTool === "text" ? "text"
     : "default";
 
   const currentScan = patient.scans.find(s => s.modality === activeModality && s.view === selectedView) || patient.scans[0];
