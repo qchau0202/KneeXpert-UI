@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
+import { useTheme } from "@/components/ThemeProvider";
 import {
   User, Bell, Shield, Monitor, Palette,
   ToggleLeft, ToggleRight, Check, Lock, HardDrive, Trash2, BookOpen
@@ -28,6 +29,7 @@ const tabs: { id: SettingsTab; label: string; icon: any }[] = [
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
+  const { theme, setTheme } = useTheme();
 
   // Profile
   const [doctorName, setDoctorName] = useState("Dr. Quốc Châu");
@@ -42,7 +44,6 @@ export default function SettingsPage() {
   const [notifyReport, setNotifyReport] = useState(true);
 
   // Appearance
-  const [theme, setTheme] = useState("light");
   const [compactMode, setCompactMode] = useState(false);
   const [showConfidence, setShowConfidence] = useState(true);
   const [defaultModel, setDefaultModel] = useState("densenet");
@@ -157,7 +158,7 @@ export default function SettingsPage() {
                   <div className="p-3 rounded-lg border">
                     <p className="text-sm font-medium mb-2">Theme</p>
                     <div className="flex gap-2">
-                      {["light", "dark", "system"].map(t => (
+                      {(["light", "dark", "system"] as const).map(t => (
                         <button
                           key={t}
                           onClick={() => setTheme(t)}
