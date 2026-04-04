@@ -111,6 +111,7 @@ function SidebarContent({ collapsed, onNavigate, onToggle }: { collapsed: boolea
             <button
               onClick={() => navigate("/login")}
               className="text-sidebar-foreground hover:text-sidebar-accent-foreground transition-colors p-1 rounded-md hover:bg-sidebar-accent/50"
+              title="Log out"
             >
               <LogOut className="w-3.5 h-3.5" />
             </button>
