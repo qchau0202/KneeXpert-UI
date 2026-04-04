@@ -29,6 +29,7 @@ const tabs: { id: SettingsTab; label: string; icon: any }[] = [
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
+  const { theme, setTheme } = useTheme();
 
   // Profile
   const [doctorName, setDoctorName] = useState("Dr. Quốc Châu");
@@ -43,7 +44,6 @@ export default function SettingsPage() {
   const [notifyReport, setNotifyReport] = useState(true);
 
   // Appearance
-  const [theme, setTheme] = useState("light");
   const [compactMode, setCompactMode] = useState(false);
   const [showConfidence, setShowConfidence] = useState(true);
   const [defaultModel, setDefaultModel] = useState("densenet");
