@@ -12,6 +12,7 @@ import DiagnosticsPage from "./pages/DiagnosticsPage";
 import ReportsHubPage from "./pages/ReportsHubPage";
 import ReportDetailPage from "./pages/ReportDetailPage";
 import SettingsPage from "./pages/SettingsPage";
+import ProfilePage from "./pages/ProfilePage";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
 import AdminLoginPage from "./pages/AdminLoginPage";
@@ -49,6 +50,7 @@ const App = () => (
             <Route path="/reports" element={<AppLayout><ReportsHubPage /></AppLayout>} />
             <Route path="/reports/:patientId" element={<AppLayout><ReportDetailPage /></AppLayout>} />
             <Route path="/settings" element={<AppLayout><SettingsPage /></AppLayout>} />
+            <Route path="/profile" element={<AppLayout><ProfilePage /></AppLayout>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
