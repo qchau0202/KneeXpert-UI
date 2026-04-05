@@ -1267,6 +1267,12 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                   <span className="text-muted-foreground ml-1">({result.confidence}%)</span>
                 </p>
                 <div className="flex items-center gap-2">
+                  <button onClick={handleDownloadImage} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border text-sm font-medium text-primary hover:bg-primary hover:text-primary-foreground transition-colors">
+                    <Download className="w-4 h-4" />Download
+                  </button>
+                  <button className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border text-sm font-medium text-muted-foreground hover:bg-muted transition-colors">
+                    <Save className="w-4 h-4" />Save to Profile
+                  </button>
                   <button className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border text-sm font-medium text-success hover:bg-success hover:text-success-foreground transition-colors">
                     <Check className="w-4 h-4" />Agree
                   </button>
