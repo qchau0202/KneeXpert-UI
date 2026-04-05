@@ -4,7 +4,7 @@ import {
   ArrowLeft, Check, X, Sun, Contrast, Maximize2, Layers, Upload, Image, FileImage,
   Loader2, CheckCircle2, Brain, Sparkles, AlertTriangle, User, Calendar,
   ChevronRight, Search, SlidersHorizontal, Clock, Scan, Type, RotateCw,
-  Grid3X3, List, Play, Pause, RefreshCw
+  Grid3X3, List, Play, Pause, RefreshCw, Download, Save, Trash2, Move, GripVertical
 } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { mockPatients, type Patient, type Modality } from "@/data/patients";
@@ -529,8 +529,14 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   const [drawSize, setDrawSize] = useState(2);
   const [textBoxes, setTextBoxes] = useState<{ id: string; x: number; y: number; text: string; color: string; fontSize: number; rotation: number }[]>([]);
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
+  const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
   const [textColor, setTextColor] = useState("#ffffff");
   const [textFontSize, setTextFontSize] = useState(14);
+  const [draggingTextId, setDraggingTextId] = useState<string | null>(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [rotatingTextId, setRotatingTextId] = useState<string | null>(null);
+  const [rotateCenter, setRotateCenter] = useState({ x: 0, y: 0 });
+  const textOptionsRef = useRef<HTMLDivElement>(null);
 
   const penColors = [
     { id: "red", value: "#ef4444", label: "Red" },
@@ -660,6 +666,16 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
     } else if (activeTool === "draw" && isDrawing) {
       const pos = getRelativePos(e);
       setCurrentDrawPath(prev => [...prev, pos]);
+    } else if (draggingTextId) {
+      const pos = getRelativePos(e);
+      setTextBoxes(prev => prev.map(t => t.id === draggingTextId ? { ...t, x: pos.x + dragOffset.x, y: pos.y + dragOffset.y } : t));
+    } else if (rotatingTextId) {
+      const rect = imageContainerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const angle = Math.atan2(my - rotateCenter.y, mx - rotateCenter.x) * (180 / Math.PI) + 90;
+      setTextBoxes(prev => prev.map(t => t.id === rotatingTextId ? { ...t, rotation: Math.round(angle / 5) * 5 } : t));
     }
   };
 
@@ -672,6 +688,32 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
       }
       setCurrentDrawPath([]);
     }
+    if (draggingTextId) setDraggingTextId(null);
+    if (rotatingTextId) setRotatingTextId(null);
+  };
+
+  const handleTextDragStart = (e: React.MouseEvent, tb: typeof textBoxes[0]) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const pos = getRelativePos(e);
+    setDragOffset({ x: tb.x - pos.x, y: tb.y - pos.y });
+    setDraggingTextId(tb.id);
+    setSelectedTextId(tb.id);
+  };
+
+  const handleRotateStart = (e: React.MouseEvent, tb: typeof textBoxes[0]) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const rect = imageContainerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const scale = zoom / 100;
+    const cx = rect.width / 2;
+    const cy = rect.height / 2;
+    const tbScreenX = ((tb.x / 100 * rect.width - cx) * scale + cx + panOffset.x / 4) + rect.left;
+    const tbScreenY = ((tb.y / 100 * rect.height - cy) * scale + cy + panOffset.y / 4) + rect.top;
+    setRotateCenter({ x: tbScreenX - rect.left, y: tbScreenY - rect.top });
+    setRotatingTextId(tb.id);
+    setSelectedTextId(tb.id);
   };
 
   const handleImageClick = (e: React.MouseEvent) => {
@@ -692,9 +734,77 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
     } else if (activeTool === "text") {
       const newId = `t${Date.now()}`;
       setTextBoxes(prev => [...prev, { id: newId, x: pos.x, y: pos.y, text: "Text", color: textColor, fontSize: textFontSize, rotation: 0 }]);
+      setSelectedTextId(newId);
       setEditingTextId(newId);
+    } else if (activeTool === "select") {
+      // Click on empty area deselects
+      setSelectedTextId(null);
+      setEditingTextId(null);
     }
   };
+
+  // Download the annotated image
+  const handleDownloadImage = useCallback(() => {
+    const container = imageContainerRef.current;
+    if (!container || !uploadedImageUrl) return;
+    const canvas = document.createElement("canvas");
+    const img = container.querySelector("img");
+    if (!img) return;
+    canvas.width = img.naturalWidth || 800;
+    canvas.height = img.naturalHeight || 800;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    // Draw paths
+    drawingPaths.forEach(dp => {
+      ctx.beginPath();
+      ctx.strokeStyle = dp.color;
+      ctx.lineWidth = dp.size;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      dp.points.forEach((p, i) => {
+        const px = (p.x / 100) * canvas.width;
+        const py = (p.y / 100) * canvas.height;
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      });
+      ctx.stroke();
+    });
+    // Draw text boxes
+    textBoxes.forEach(tb => {
+      ctx.save();
+      const tx = (tb.x / 100) * canvas.width;
+      const ty = (tb.y / 100) * canvas.height;
+      ctx.translate(tx, ty);
+      ctx.rotate((tb.rotation * Math.PI) / 180);
+      ctx.font = `600 ${tb.fontSize * (canvas.width / 500)}px sans-serif`;
+      ctx.fillStyle = tb.color;
+      ctx.textAlign = "center";
+      ctx.fillText(tb.text, 0, 0);
+      ctx.restore();
+    });
+    // Draw measurements
+    measurements.forEach(m => {
+      const x1 = (m.x1 / 100) * canvas.width, y1 = (m.y1 / 100) * canvas.height;
+      const x2 = (m.x2 / 100) * canvas.width, y2 = (m.y2 / 100) * canvas.height;
+      ctx.beginPath(); ctx.setLineDash([6, 3]); ctx.strokeStyle = "#6366f1"; ctx.lineWidth = 2;
+      ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); ctx.setLineDash([]);
+      ctx.beginPath(); ctx.arc(x1, y1, 4, 0, Math.PI * 2); ctx.fillStyle = "#6366f1"; ctx.fill();
+      ctx.beginPath(); ctx.arc(x2, y2, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.font = "12px sans-serif"; ctx.fillStyle = "#6366f1"; ctx.textAlign = "center";
+      ctx.fillText(`${Math.round(Math.sqrt(Math.pow(m.x2 - m.x1, 2) + Math.pow(m.y2 - m.y1, 2)) * 2.5)}mm`, (x1 + x2) / 2, (y1 + y2) / 2 - 8);
+    });
+    // Annotations
+    annotations.forEach(a => {
+      const ax = (a.x / 100) * canvas.width, ay = (a.y / 100) * canvas.height;
+      ctx.beginPath(); ctx.arc(ax, ay, 10, 0, Math.PI * 2); ctx.fillStyle = "#eab308"; ctx.fill();
+      ctx.font = "bold 10px sans-serif"; ctx.fillStyle = "#000"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(a.label, ax, ay);
+    });
+    const link = document.createElement("a");
+    link.download = `${patient.name.replace(/\s+/g, "_")}_annotated.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  }, [uploadedImageUrl, drawingPaths, textBoxes, measurements, annotations, patient.name]);
 
   return (
     <div className="flex flex-col h-full">
@@ -873,61 +983,78 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                     ))}
 
                     {/* Text box overlays */}
-                    {textBoxes.map(tb => (
-                      <div
-                        key={tb.id}
-                        className="absolute z-25 group"
-                        style={{ left: `${tb.x}%`, top: `${tb.y}%`, transform: `translate(-50%, -50%) rotate(${tb.rotation}deg)` }}
-                        onClick={e => { e.stopPropagation(); setEditingTextId(tb.id); setActiveTool("text"); }}
-                        onMouseDown={e => e.stopPropagation()}
-                      >
-                        {editingTextId === tb.id ? (
+                    {textBoxes.map(tb => {
+                      const isSelected = selectedTextId === tb.id;
+                      const isEditing = editingTextId === tb.id;
+                      return (
+                        <div
+                          key={tb.id}
+                          className={cn("absolute z-25", isSelected && "z-30")}
+                          style={{ left: `${tb.x}%`, top: `${tb.y}%`, transform: `translate(-50%, -50%) rotate(${tb.rotation}deg)` }}
+                          onClick={e => { e.stopPropagation(); setSelectedTextId(tb.id); }}
+                          onDoubleClick={e => { e.stopPropagation(); setEditingTextId(tb.id); }}
+                          onMouseDown={e => {
+                            if (isEditing) { e.stopPropagation(); return; }
+                            handleTextDragStart(e, tb);
+                          }}
+                        >
                           <div className="relative">
-                            <input
-                              autoFocus
-                              value={tb.text}
-                              onChange={e => setTextBoxes(prev => prev.map(t => t.id === tb.id ? { ...t, text: e.target.value } : t))}
-                              onKeyDown={e => { if (e.key === "Enter") setEditingTextId(null); }}
-                              onBlur={() => setEditingTextId(null)}
-                              className="bg-transparent border border-dashed border-white/60 px-1.5 py-0.5 text-white outline-none min-w-[60px]"
-                              style={{ color: tb.color, fontSize: `${tb.fontSize}px`, fontWeight: 600 }}
-                              onClick={e => e.stopPropagation()}
-                            />
-                            {/* Rotation handle */}
-                            <div className="absolute -top-6 left-1/2 -translate-x-1/2 flex items-center gap-1">
-                              <button
-                                onClick={e => { e.stopPropagation(); setTextBoxes(prev => prev.map(t => t.id === tb.id ? { ...t, rotation: t.rotation - 15 } : t)); }}
-                                className="w-5 h-5 rounded bg-background/90 border flex items-center justify-center text-[10px] hover:bg-muted"
-                              ><RotateCw className="w-3 h-3 scale-x-[-1]" /></button>
-                              <span className="text-[9px] text-white/70 bg-black/50 px-1 rounded">{tb.rotation}°</span>
-                              <button
-                                onClick={e => { e.stopPropagation(); setTextBoxes(prev => prev.map(t => t.id === tb.id ? { ...t, rotation: t.rotation + 15 } : t)); }}
-                                className="w-5 h-5 rounded bg-background/90 border flex items-center justify-center text-[10px] hover:bg-muted"
-                              ><RotateCw className="w-3 h-3" /></button>
-                              <button
-                                onClick={e => { e.stopPropagation(); setTextBoxes(prev => prev.filter(t => t.id !== tb.id)); setEditingTextId(null); }}
-                                className="w-5 h-5 rounded bg-destructive/90 flex items-center justify-center text-[10px] text-white hover:bg-destructive"
-                              ><X className="w-3 h-3" /></button>
-                            </div>
+                            {isEditing ? (
+                              <input
+                                autoFocus
+                                value={tb.text}
+                                onChange={e => setTextBoxes(prev => prev.map(t => t.id === tb.id ? { ...t, text: e.target.value } : t))}
+                                onKeyDown={e => { if (e.key === "Enter") setEditingTextId(null); if (e.key === "Escape") { setEditingTextId(null); setSelectedTextId(null); } }}
+                                className="bg-transparent border border-dashed border-white/60 px-1.5 py-0.5 outline-none min-w-[60px]"
+                                style={{ color: tb.color, fontSize: `${tb.fontSize}px`, fontWeight: 600 }}
+                                onClick={e => e.stopPropagation()}
+                                onMouseDown={e => e.stopPropagation()}
+                              />
+                            ) : (
+                              <span
+                                className={cn("cursor-move select-none drop-shadow-md rounded px-1", isSelected ? "ring-2 ring-primary/60" : "hover:ring-1 hover:ring-white/40")}
+                                style={{ color: tb.color, fontSize: `${tb.fontSize}px`, fontWeight: 600 }}
+                              >{tb.text}</span>
+                            )}
+
+                            {/* Controls visible when selected */}
+                            {isSelected && (
+                              <>
+                                {/* Rotate handle - draggable circle */}
+                                <div
+                                  className="absolute -top-8 left-1/2 -translate-x-1/2 flex flex-col items-center cursor-grab active:cursor-grabbing"
+                                  onMouseDown={e => handleRotateStart(e, tb)}
+                                >
+                                  <div className="w-0.5 h-3 bg-primary/50" />
+                                  <div className="w-4 h-4 rounded-full bg-primary border-2 border-primary-foreground shadow-sm flex items-center justify-center">
+                                    <RotateCw className="w-2.5 h-2.5 text-primary-foreground" />
+                                  </div>
+                                </div>
+                                <span className="absolute -top-3 -right-6 text-[8px] bg-black/60 text-white px-1 rounded">{tb.rotation}°</span>
+                                {/* Delete button */}
+                                <button
+                                  onClick={e => { e.stopPropagation(); setTextBoxes(prev => prev.filter(t => t.id !== tb.id)); setSelectedTextId(null); setEditingTextId(null); }}
+                                  onMouseDown={e => e.stopPropagation()}
+                                  className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-destructive flex items-center justify-center shadow-sm hover:bg-destructive/80"
+                                >
+                                  <X className="w-3 h-3 text-white" />
+                                </button>
+                              </>
+                            )}
                           </div>
-                        ) : (
-                          <span
-                            className="cursor-pointer select-none drop-shadow-md hover:ring-1 hover:ring-white/40 rounded px-1"
-                            style={{ color: tb.color, fontSize: `${tb.fontSize}px`, fontWeight: 600 }}
-                          >{tb.text}</span>
-                        )}
-                      </div>
-                    ))}
+                        </div>
+                      );
+                    })}
 
                     {/* Text tool options panel */}
-                    {activeTool === "text" && diagnosticStage === "complete" && (
-                      <div className="absolute top-3 left-3 z-30 bg-background/95 backdrop-blur-sm border rounded-xl p-2.5 shadow-lg space-y-2 w-[170px]" onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
+                    {(activeTool === "text" || selectedTextId) && diagnosticStage === "complete" && (
+                      <div ref={textOptionsRef} className="absolute top-3 left-3 z-30 bg-background/95 backdrop-blur-sm border rounded-xl p-2.5 shadow-lg space-y-2 w-[170px]" onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
                         <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Text Color</p>
                         <div className="flex flex-wrap gap-1.5">
                           {penColors.map(c => (
                             <button
                               key={c.id}
-                              onClick={e => { e.stopPropagation(); setTextColor(c.value); if (editingTextId) setTextBoxes(prev => prev.map(t => t.id === editingTextId ? { ...t, color: c.value } : t)); }}
+                              onClick={e => { e.stopPropagation(); setTextColor(c.value); const tid = selectedTextId || editingTextId; if (tid) setTextBoxes(prev => prev.map(t => t.id === tid ? { ...t, color: c.value } : t)); }}
                               className={cn("w-6 h-6 rounded-full border-2 transition-all", textColor === c.value ? "border-foreground scale-110 shadow-sm" : "border-transparent hover:scale-105")}
                               style={{ backgroundColor: c.value }}
                               title={c.label}
@@ -936,21 +1063,18 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                         </div>
                         <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider pt-1">Font Size · {textFontSize}px</p>
                         <input
-                          type="range" min="8" max="36" value={textFontSize}
-                          onChange={e => { const v = parseInt(e.target.value); setTextFontSize(v); if (editingTextId) setTextBoxes(prev => prev.map(t => t.id === editingTextId ? { ...t, fontSize: v } : t)); }}
+                          type="range" min="8" max="36" value={selectedTextId ? (textBoxes.find(t => t.id === selectedTextId)?.fontSize ?? textFontSize) : textFontSize}
+                          onChange={e => { const v = parseInt(e.target.value); setTextFontSize(v); const tid = selectedTextId || editingTextId; if (tid) setTextBoxes(prev => prev.map(t => t.id === tid ? { ...t, fontSize: v } : t)); }}
                           className="w-full accent-primary h-1 cursor-pointer"
                           onClick={e => e.stopPropagation()}
                         />
-                        {editingTextId && (
-                          <>
-                            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider pt-1">Rotation</p>
-                            <input
-                              type="range" min="-180" max="180" value={textBoxes.find(t => t.id === editingTextId)?.rotation ?? 0}
-                              onChange={e => { const v = parseInt(e.target.value); setTextBoxes(prev => prev.map(t => t.id === editingTextId ? { ...t, rotation: v } : t)); }}
-                              className="w-full accent-primary h-1 cursor-pointer"
-                              onClick={e => e.stopPropagation()}
-                            />
-                          </>
+                        {selectedTextId && (
+                          <button
+                            onClick={e => { e.stopPropagation(); setTextBoxes(prev => prev.filter(t => t.id !== selectedTextId)); setSelectedTextId(null); setEditingTextId(null); }}
+                            className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[10px] font-medium text-destructive bg-destructive/10 hover:bg-destructive/20 transition-colors"
+                          >
+                            <Trash2 className="w-3 h-3" />Delete Text Box
+                          </button>
                         )}
                       </div>
                     )}
@@ -1143,6 +1267,12 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                   <span className="text-muted-foreground ml-1">({result.confidence}%)</span>
                 </p>
                 <div className="flex items-center gap-2">
+                  <button onClick={handleDownloadImage} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border text-sm font-medium text-primary hover:bg-primary hover:text-primary-foreground transition-colors">
+                    <Download className="w-4 h-4" />Download
+                  </button>
+                  <button className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border text-sm font-medium text-muted-foreground hover:bg-muted transition-colors">
+                    <Save className="w-4 h-4" />Save to Profile
+                  </button>
                   <button className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border text-sm font-medium text-success hover:bg-success hover:text-success-foreground transition-colors">
                     <Check className="w-4 h-4" />Agree
                   </button>
