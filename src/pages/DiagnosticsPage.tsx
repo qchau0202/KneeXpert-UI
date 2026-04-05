@@ -666,6 +666,16 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
     } else if (activeTool === "draw" && isDrawing) {
       const pos = getRelativePos(e);
       setCurrentDrawPath(prev => [...prev, pos]);
+    } else if (draggingTextId) {
+      const pos = getRelativePos(e);
+      setTextBoxes(prev => prev.map(t => t.id === draggingTextId ? { ...t, x: pos.x + dragOffset.x, y: pos.y + dragOffset.y } : t));
+    } else if (rotatingTextId) {
+      const rect = imageContainerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const angle = Math.atan2(my - rotateCenter.y, mx - rotateCenter.x) * (180 / Math.PI) + 90;
+      setTextBoxes(prev => prev.map(t => t.id === rotatingTextId ? { ...t, rotation: Math.round(angle / 5) * 5 } : t));
     }
   };
 
@@ -678,6 +688,32 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
       }
       setCurrentDrawPath([]);
     }
+    if (draggingTextId) setDraggingTextId(null);
+    if (rotatingTextId) setRotatingTextId(null);
+  };
+
+  const handleTextDragStart = (e: React.MouseEvent, tb: typeof textBoxes[0]) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const pos = getRelativePos(e);
+    setDragOffset({ x: tb.x - pos.x, y: tb.y - pos.y });
+    setDraggingTextId(tb.id);
+    setSelectedTextId(tb.id);
+  };
+
+  const handleRotateStart = (e: React.MouseEvent, tb: typeof textBoxes[0]) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const rect = imageContainerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const scale = zoom / 100;
+    const cx = rect.width / 2;
+    const cy = rect.height / 2;
+    const tbScreenX = ((tb.x / 100 * rect.width - cx) * scale + cx + panOffset.x / 4) + rect.left;
+    const tbScreenY = ((tb.y / 100 * rect.height - cy) * scale + cy + panOffset.y / 4) + rect.top;
+    setRotateCenter({ x: tbScreenX - rect.left, y: tbScreenY - rect.top });
+    setRotatingTextId(tb.id);
+    setSelectedTextId(tb.id);
   };
 
   const handleImageClick = (e: React.MouseEvent) => {
@@ -698,11 +734,77 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
     } else if (activeTool === "text") {
       const newId = `t${Date.now()}`;
       setTextBoxes(prev => [...prev, { id: newId, x: pos.x, y: pos.y, text: "Text", color: textColor, fontSize: textFontSize, rotation: 0 }]);
+      setSelectedTextId(newId);
       setEditingTextId(newId);
+    } else if (activeTool === "select") {
+      // Click on empty area deselects
+      setSelectedTextId(null);
+      setEditingTextId(null);
     }
   };
 
-  return (
+  // Download the annotated image
+  const handleDownloadImage = useCallback(() => {
+    const container = imageContainerRef.current;
+    if (!container || !uploadedImageUrl) return;
+    const canvas = document.createElement("canvas");
+    const img = container.querySelector("img");
+    if (!img) return;
+    canvas.width = img.naturalWidth || 800;
+    canvas.height = img.naturalHeight || 800;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    // Draw paths
+    drawingPaths.forEach(dp => {
+      ctx.beginPath();
+      ctx.strokeStyle = dp.color;
+      ctx.lineWidth = dp.size;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      dp.points.forEach((p, i) => {
+        const px = (p.x / 100) * canvas.width;
+        const py = (p.y / 100) * canvas.height;
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      });
+      ctx.stroke();
+    });
+    // Draw text boxes
+    textBoxes.forEach(tb => {
+      ctx.save();
+      const tx = (tb.x / 100) * canvas.width;
+      const ty = (tb.y / 100) * canvas.height;
+      ctx.translate(tx, ty);
+      ctx.rotate((tb.rotation * Math.PI) / 180);
+      ctx.font = `600 ${tb.fontSize * (canvas.width / 500)}px sans-serif`;
+      ctx.fillStyle = tb.color;
+      ctx.textAlign = "center";
+      ctx.fillText(tb.text, 0, 0);
+      ctx.restore();
+    });
+    // Draw measurements
+    measurements.forEach(m => {
+      const x1 = (m.x1 / 100) * canvas.width, y1 = (m.y1 / 100) * canvas.height;
+      const x2 = (m.x2 / 100) * canvas.width, y2 = (m.y2 / 100) * canvas.height;
+      ctx.beginPath(); ctx.setLineDash([6, 3]); ctx.strokeStyle = "#6366f1"; ctx.lineWidth = 2;
+      ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); ctx.setLineDash([]);
+      ctx.beginPath(); ctx.arc(x1, y1, 4, 0, Math.PI * 2); ctx.fillStyle = "#6366f1"; ctx.fill();
+      ctx.beginPath(); ctx.arc(x2, y2, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.font = "12px sans-serif"; ctx.fillStyle = "#6366f1"; ctx.textAlign = "center";
+      ctx.fillText(`${Math.round(Math.sqrt(Math.pow(m.x2 - m.x1, 2) + Math.pow(m.y2 - m.y1, 2)) * 2.5)}mm`, (x1 + x2) / 2, (y1 + y2) / 2 - 8);
+    });
+    // Annotations
+    annotations.forEach(a => {
+      const ax = (a.x / 100) * canvas.width, ay = (a.y / 100) * canvas.height;
+      ctx.beginPath(); ctx.arc(ax, ay, 10, 0, Math.PI * 2); ctx.fillStyle = "#eab308"; ctx.fill();
+      ctx.font = "bold 10px sans-serif"; ctx.fillStyle = "#000"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(a.label, ax, ay);
+    });
+    const link = document.createElement("a");
+    link.download = `${patient.name.replace(/\s+/g, "_")}_annotated.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  }, [uploadedImageUrl, drawingPaths, textBoxes, measurements, annotations, patient.name]);
     <div className="flex flex-col h-full">
       {/* Sticky top bar */}
       <div className="border-b bg-background sticky top-0 z-10 flex-shrink-0">
