@@ -167,7 +167,7 @@ export default function ReportDetailPage() {
 
     <div className="h-screen flex overflow-hidden">
       <div className="flex-1 overflow-auto">
-        <motion.div variants={containerVariants} initial="hidden" animate="visible" className="max-w-[72ch] mx-auto py-10 px-6">
+        <motion.div variants={containerVariants} initial="hidden" animate="visible" className="max-w-5xl mx-auto py-5 px-4 lg:px-5">
           <button onClick={() => navigate("/reports")} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6">
             <ArrowLeft className="w-4 h-4" />
             Back to Reports

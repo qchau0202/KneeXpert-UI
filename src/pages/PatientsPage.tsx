@@ -34,7 +34,7 @@ export default function PatientsPage() {
   return (
     <div className="flex min-h-screen">
       <div className="flex-1 overflow-auto">
-        <motion.div variants={anim} initial="hidden" animate="visible" className="p-4 sm:p-6 space-y-5 max-w-[1200px] mx-auto">
+        <motion.div variants={anim} initial="hidden" animate="visible" className="p-3 sm:p-4 lg:p-5 space-y-4 max-w-[1400px] mx-auto">
           {/* Header */}
           <motion.div variants={item} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>

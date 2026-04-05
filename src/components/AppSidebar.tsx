@@ -26,7 +26,7 @@ function SidebarContent({ collapsed, onNavigate, onToggle }: { collapsed: boolea
       <div className={cn("h-14 flex items-center border-b border-sidebar-border flex-shrink-0", collapsed ? "justify-center px-2" : "justify-between px-4")}>
         <div className={cn("flex items-center gap-3", collapsed && "justify-center")}>
           <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center flex-shrink-0">
-            <Activity className="w-4 h-4 text-primary-foreground" />
+            <Activity className="w-4 h-4 text-white" />
           </div>
           {!collapsed && (
             <motion.span
