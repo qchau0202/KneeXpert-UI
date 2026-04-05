@@ -805,6 +805,8 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
     link.href = canvas.toDataURL("image/png");
     link.click();
   }, [uploadedImageUrl, drawingPaths, textBoxes, measurements, annotations, patient.name]);
+
+  return (
     <div className="flex flex-col h-full">
       {/* Sticky top bar */}
       <div className="border-b bg-background sticky top-0 z-10 flex-shrink-0">
