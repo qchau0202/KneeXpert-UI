@@ -26,14 +26,14 @@ function SidebarContent({ collapsed, onNavigate, onToggle }: { collapsed: boolea
       <div className={cn("h-14 flex items-center border-b border-sidebar-border flex-shrink-0", collapsed ? "justify-center px-2" : "justify-between px-4")}>
         <div className={cn("flex items-center gap-3", collapsed && "justify-center")}>
           <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center flex-shrink-0">
-            <Activity className="w-4 h-4 text-primary-foreground" />
+            <Activity className="w-4 h-4 text-white" />
           </div>
           {!collapsed && (
             <motion.span
               initial={{ opacity: 0, width: 0 }}
               animate={{ opacity: 1, width: "auto" }}
               exit={{ opacity: 0, width: 0 }}
-              className="text-sm font-semibold text-sidebar-accent-foreground whitespace-nowrap overflow-hidden"
+              className="text-sm font-semibold text-foreground whitespace-nowrap overflow-hidden"
             >
               KneeXpert
             </motion.span>
@@ -104,7 +104,7 @@ function SidebarContent({ collapsed, onNavigate, onToggle }: { collapsed: boolea
             title="View Profile"
           >
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/80 to-primary flex items-center justify-center flex-shrink-0">
-              <User className="w-4 h-4 text-primary-foreground" />
+              <User className="w-4 h-4 text-white" />
             </div>
             {!collapsed && (
               <div className="flex-1 min-w-0 text-left">

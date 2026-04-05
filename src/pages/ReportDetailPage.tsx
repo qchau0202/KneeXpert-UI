@@ -167,7 +167,7 @@ export default function ReportDetailPage() {
 
     <div className="h-screen flex overflow-hidden">
       <div className="flex-1 overflow-auto">
-        <motion.div variants={containerVariants} initial="hidden" animate="visible" className="max-w-[72ch] mx-auto py-10 px-6">
+        <motion.div variants={containerVariants} initial="hidden" animate="visible" className="max-w-5xl mx-auto py-5 px-4 lg:px-5">
           <button onClick={() => navigate("/reports")} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6">
             <ArrowLeft className="w-4 h-4" />
             Back to Reports
@@ -184,7 +184,7 @@ export default function ReportDetailPage() {
               <StatusBadge status={patient.status} />
             </div>
 
-            <div className="grid grid-cols-6 gap-3 pt-4 border-t">
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 pt-4 border-t">
               {[
                 { label: "Age", value: `${patient.age}` },
                 { label: "Gender", value: patient.gender },
@@ -522,7 +522,7 @@ export default function ReportDetailPage() {
       </div>
 
       {/* Actions Sidebar */}
-      <div className="w-56 border-l bg-muted/30 p-4 space-y-3 flex-shrink-0">
+      <div className="w-52 border-l bg-muted/30 p-3 space-y-2.5 flex-shrink-0 hidden lg:block">
         <p className="section-header mb-4">Quick Actions</p>
 
         <button onClick={handlePreviewPdf} className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
