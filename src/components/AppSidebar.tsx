@@ -33,7 +33,7 @@ function SidebarContent({ collapsed, onNavigate, onToggle }: { collapsed: boolea
               initial={{ opacity: 0, width: 0 }}
               animate={{ opacity: 1, width: "auto" }}
               exit={{ opacity: 0, width: 0 }}
-              className="text-sm font-semibold text-sidebar-accent-foreground whitespace-nowrap overflow-hidden"
+              className="text-sm font-semibold text-foreground whitespace-nowrap overflow-hidden"
             >
               KneeXpert
             </motion.span>
@@ -104,7 +104,7 @@ function SidebarContent({ collapsed, onNavigate, onToggle }: { collapsed: boolea
             title="View Profile"
           >
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/80 to-primary flex items-center justify-center flex-shrink-0">
-              <User className="w-4 h-4 text-primary-foreground" />
+              <User className="w-4 h-4 text-white" />
             </div>
             {!collapsed && (
               <div className="flex-1 min-w-0 text-left">

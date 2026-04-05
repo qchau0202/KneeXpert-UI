@@ -184,7 +184,7 @@ export default function ReportDetailPage() {
               <StatusBadge status={patient.status} />
             </div>
 
-            <div className="grid grid-cols-6 gap-3 pt-4 border-t">
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 pt-4 border-t">
               {[
                 { label: "Age", value: `${patient.age}` },
                 { label: "Gender", value: patient.gender },
@@ -522,7 +522,7 @@ export default function ReportDetailPage() {
       </div>
 
       {/* Actions Sidebar */}
-      <div className="w-56 border-l bg-muted/30 p-4 space-y-3 flex-shrink-0">
+      <div className="w-52 border-l bg-muted/30 p-3 space-y-2.5 flex-shrink-0 hidden lg:block">
         <p className="section-header mb-4">Quick Actions</p>
 
         <button onClick={handlePreviewPdf} className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
