@@ -13,9 +13,8 @@ interface DiagnosticsToolbarProps {
 }
 
 const tools = [
-  { id: "select", icon: MousePointer, label: "Select", desc: "Select and interact" },
+  { id: "select", icon: MousePointer, label: "Select", desc: "Select & move elements" },
   { id: "pan", icon: Move, label: "Pan", desc: "Click and drag to pan" },
-  { id: "zoom", icon: ZoomIn, label: "Zoom", desc: "Click to zoom area" },
   { id: "measure", icon: Ruler, label: "Measure", desc: "Click two points to measure distance" },
   { id: "annotate", icon: Crosshair, label: "Annotate", desc: "Click to place a marker" },
   { id: "draw", icon: Pencil, label: "Draw", desc: "Freehand drawing on scan" },
