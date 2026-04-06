@@ -677,7 +677,24 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
     } else if (draggingTextId) {
       const pos = getRelativePos(e);
       setTextBoxes(prev => prev.map(t => t.id === draggingTextId ? { ...t, x: pos.x + dragOffset.x, y: pos.y + dragOffset.y } : t));
-    } else if (rotatingTextId) {
+    } else if (resizingTextId) {
+      const rect = imageContainerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const dx = e.clientX - resizeStartX;
+      const scale = zoom / 100;
+      const newWidthPx = Math.max(40, resizeStartWidth + dx / scale);
+      const newWidthPct = (newWidthPx / rect.width) * 100;
+      setTextBoxes(prev => prev.map(t => t.id === resizingTextId ? { ...t, width: newWidthPct } : t));
+    } else if (draggingMeasurePoint) {
+      const pos = getRelativePos(e);
+      setMeasurements(prev => prev.map(m => {
+        if (m.id !== draggingMeasurePoint.measureId) return m;
+        if (draggingMeasurePoint.point === "start") return { ...m, x1: pos.x + dragElementOffset.x, y1: pos.y + dragElementOffset.y };
+        return { ...m, x2: pos.x + dragElementOffset.x, y2: pos.y + dragElementOffset.y };
+      }));
+    } else if (draggingAnnotation) {
+      const pos = getRelativePos(e);
+      setAnnotations(prev => prev.map(a => a.id === draggingAnnotation ? { ...a, x: pos.x + dragElementOffset.x, y: pos.y + dragElementOffset.y } : a));
       const rect = imageContainerRef.current?.getBoundingClientRect();
       if (!rect) return;
       const mx = e.clientX - rect.left;
