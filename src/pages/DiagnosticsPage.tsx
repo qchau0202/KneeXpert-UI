@@ -744,6 +744,41 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
     setSelectedTextId(tb.id);
   };
 
+  const handleResizeStart = (e: React.MouseEvent, tb: typeof textBoxes[0]) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const rect = imageContainerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setResizingTextId(tb.id);
+    setResizeStartX(e.clientX);
+    setResizeStartWidth((tb.width / 100) * rect.width);
+    setSelectedTextId(tb.id);
+  };
+
+  const handleMeasurePointDrag = (e: React.MouseEvent, measureId: string, point: "start" | "end") => {
+    if (activeTool !== "select") return;
+    e.stopPropagation();
+    e.preventDefault();
+    const m = measurements.find(mm => mm.id === measureId);
+    if (!m) return;
+    const pos = getRelativePos(e);
+    const px = point === "start" ? m.x1 : m.x2;
+    const py = point === "start" ? m.y1 : m.y2;
+    setDragElementOffset({ x: px - pos.x, y: py - pos.y });
+    setDraggingMeasurePoint({ measureId, point });
+  };
+
+  const handleAnnotationDrag = (e: React.MouseEvent, annotationId: string) => {
+    if (activeTool !== "select") return;
+    e.stopPropagation();
+    e.preventDefault();
+    const a = annotations.find(aa => aa.id === annotationId);
+    if (!a) return;
+    const pos = getRelativePos(e);
+    setDragElementOffset({ x: a.x - pos.x, y: a.y - pos.y });
+    setDraggingAnnotation(annotationId);
+  };
+
   const handleImageClick = (e: React.MouseEvent) => {
     if (diagnosticStage !== "complete") return;
     const pos = getRelativePos(e);
