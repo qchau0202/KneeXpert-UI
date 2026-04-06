@@ -569,11 +569,10 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
 
   const toolCursor = activeTool === "pan" ? (isPanning ? "grabbing" : "grab") 
-    : activeTool === "zoom" ? "zoom-in" 
     : activeTool === "measure" ? "crosshair" 
     : activeTool === "annotate" ? "crosshair" 
     : activeTool === "draw" ? "crosshair" 
-    : activeTool === "text" ? "text"
+    : activeTool === "text" ? (textPlaced ? "default" : "text")
     : "default";
 
   const currentScan = patient.scans.find(s => s.modality === activeModality && s.view === selectedView) || patient.scans[0];
