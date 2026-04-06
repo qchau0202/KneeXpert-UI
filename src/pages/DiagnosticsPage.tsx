@@ -979,20 +979,26 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                       )}
                     </div>
 
-                    {/* Measurement overlays — inside transform container so they follow zoom/pan */}
-                    <svg className="absolute inset-0 w-full h-full pointer-events-none z-20">
+                    {/* Measurement overlays — draggable points in select mode */}
+                    <svg className="absolute inset-0 w-full h-full z-20" style={{ pointerEvents: activeTool === "select" ? "auto" : "none" }}>
                       {measurements.map(m => (
                         <g key={m.id}>
-                          <line x1={`${m.x1}%`} y1={`${m.y1}%`} x2={`${m.x2}%`} y2={`${m.y2}%`} stroke="hsl(var(--primary))" strokeWidth="2" strokeDasharray="4 2" />
-                          <circle cx={`${m.x1}%`} cy={`${m.y1}%`} r="3" fill="hsl(var(--primary))" />
-                          <circle cx={`${m.x2}%`} cy={`${m.y2}%`} r="3" fill="hsl(var(--primary))" />
-                          <text x={`${(m.x1 + m.x2) / 2}%`} y={`${(m.y1 + m.y2) / 2 - 2}%`} fill="hsl(var(--primary))" fontSize="10" textAnchor="middle" fontWeight="600">
+                          <line x1={`${m.x1}%`} y1={`${m.y1}%`} x2={`${m.x2}%`} y2={`${m.y2}%`} stroke="hsl(var(--primary))" strokeWidth="2" strokeDasharray="4 2" style={{ pointerEvents: "none" }} />
+                          <circle cx={`${m.x1}%`} cy={`${m.y1}%`} r="6" fill="hsl(var(--primary))" fillOpacity="0.5" stroke="hsl(var(--primary))" strokeWidth="2"
+                            style={{ cursor: activeTool === "select" ? "grab" : "default" }}
+                            onMouseDown={e => handleMeasurePointDrag(e, m.id, "start")} />
+                          <circle cx={`${m.x1}%`} cy={`${m.y1}%`} r="3" fill="hsl(var(--primary))" style={{ pointerEvents: "none" }} />
+                          <circle cx={`${m.x2}%`} cy={`${m.y2}%`} r="6" fill="hsl(var(--primary))" fillOpacity="0.5" stroke="hsl(var(--primary))" strokeWidth="2"
+                            style={{ cursor: activeTool === "select" ? "grab" : "default" }}
+                            onMouseDown={e => handleMeasurePointDrag(e, m.id, "end")} />
+                          <circle cx={`${m.x2}%`} cy={`${m.y2}%`} r="3" fill="hsl(var(--primary))" style={{ pointerEvents: "none" }} />
+                          <text x={`${(m.x1 + m.x2) / 2}%`} y={`${(m.y1 + m.y2) / 2 - 2}%`} fill="hsl(var(--primary))" fontSize="10" textAnchor="middle" fontWeight="600" style={{ pointerEvents: "none" }}>
                             {Math.round(Math.sqrt(Math.pow(m.x2 - m.x1, 2) + Math.pow(m.y2 - m.y1, 2)) * 2.5)}mm
                           </text>
                         </g>
                       ))}
                       {measureStart && (
-                        <circle cx={`${measureStart.x}%`} cy={`${measureStart.y}%`} r="4" fill="hsl(var(--primary))" opacity="0.7">
+                        <circle cx={`${measureStart.x}%`} cy={`${measureStart.y}%`} r="4" fill="hsl(var(--primary))" opacity="0.7" style={{ pointerEvents: "none" }}>
                           <animate attributeName="r" values="3;5;3" dur="1s" repeatCount="indefinite" />
                         </circle>
                       )}
