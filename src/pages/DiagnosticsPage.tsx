@@ -527,7 +527,7 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   const [currentDrawPath, setCurrentDrawPath] = useState<{ x: number; y: number }[]>([]);
   const [drawColor, setDrawColor] = useState("#ef4444");
   const [drawSize, setDrawSize] = useState(2);
-  const [textBoxes, setTextBoxes] = useState<{ id: string; x: number; y: number; text: string; color: string; fontSize: number; rotation: number }[]>([]);
+  const [textBoxes, setTextBoxes] = useState<{ id: string; x: number; y: number; text: string; color: string; fontSize: number; rotation: number; width: number }[]>([]);
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
   const [textColor, setTextColor] = useState("#ffffff");
@@ -536,6 +536,13 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [rotatingTextId, setRotatingTextId] = useState<string | null>(null);
   const [rotateCenter, setRotateCenter] = useState({ x: 0, y: 0 });
+  const [resizingTextId, setResizingTextId] = useState<string | null>(null);
+  const [resizeStartX, setResizeStartX] = useState(0);
+  const [resizeStartWidth, setResizeStartWidth] = useState(0);
+  const [textPlaced, setTextPlaced] = useState(false);
+  const [draggingMeasurePoint, setDraggingMeasurePoint] = useState<{ measureId: string; point: "start" | "end" } | null>(null);
+  const [draggingAnnotation, setDraggingAnnotation] = useState<string | null>(null);
+  const [dragElementOffset, setDragElementOffset] = useState({ x: 0, y: 0 });
   const textOptionsRef = useRef<HTMLDivElement>(null);
 
   const penColors = [
