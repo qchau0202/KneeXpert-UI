@@ -527,7 +527,7 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   const [currentDrawPath, setCurrentDrawPath] = useState<{ x: number; y: number }[]>([]);
   const [drawColor, setDrawColor] = useState("#ef4444");
   const [drawSize, setDrawSize] = useState(2);
-  const [textBoxes, setTextBoxes] = useState<{ id: string; x: number; y: number; text: string; color: string; fontSize: number; rotation: number }[]>([]);
+  const [textBoxes, setTextBoxes] = useState<{ id: string; x: number; y: number; text: string; color: string; fontSize: number; rotation: number; width: number }[]>([]);
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
   const [textColor, setTextColor] = useState("#ffffff");
@@ -536,6 +536,13 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [rotatingTextId, setRotatingTextId] = useState<string | null>(null);
   const [rotateCenter, setRotateCenter] = useState({ x: 0, y: 0 });
+  const [resizingTextId, setResizingTextId] = useState<string | null>(null);
+  const [resizeStartX, setResizeStartX] = useState(0);
+  const [resizeStartWidth, setResizeStartWidth] = useState(0);
+  const [textPlaced, setTextPlaced] = useState(false);
+  const [draggingMeasurePoint, setDraggingMeasurePoint] = useState<{ measureId: string; point: "start" | "end" } | null>(null);
+  const [draggingAnnotation, setDraggingAnnotation] = useState<string | null>(null);
+  const [dragElementOffset, setDragElementOffset] = useState({ x: 0, y: 0 });
   const textOptionsRef = useRef<HTMLDivElement>(null);
 
   const penColors = [
@@ -562,11 +569,10 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
 
   const toolCursor = activeTool === "pan" ? (isPanning ? "grabbing" : "grab") 
-    : activeTool === "zoom" ? "zoom-in" 
     : activeTool === "measure" ? "crosshair" 
     : activeTool === "annotate" ? "crosshair" 
     : activeTool === "draw" ? "crosshair" 
-    : activeTool === "text" ? "text"
+    : activeTool === "text" ? (textPlaced ? "default" : "text")
     : "default";
 
   const currentScan = patient.scans.find(s => s.modality === activeModality && s.view === selectedView) || patient.scans[0];
@@ -629,7 +635,9 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   const handleDrop = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(false); const file = e.dataTransfer.files?.[0]; if (file) processFile(file); };
   const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(true); };
   const handleDragLeave = () => setIsDragging(false);
-  const resetDiagnostic = () => { setDiagnosticStage("idle"); setStagesCompleted([]); setCurrentStageIndex(0); setUploadProgress(0); setUploadedFileName(""); setMeasurements([]); setAnnotations([]); setDrawingPaths([]); setCurrentDrawPath([]); setTextBoxes([]); setEditingTextId(null); setPanOffset({ x: 0, y: 0 }); setZoom(100); if (uploadedImageUrl) { URL.revokeObjectURL(uploadedImageUrl); setUploadedImageUrl(null); } };
+  const resetDiagnostic = () => { setDiagnosticStage("idle"); setStagesCompleted([]); setCurrentStageIndex(0); setUploadProgress(0); setUploadedFileName(""); setMeasurements([]); setAnnotations([]); setDrawingPaths([]); setCurrentDrawPath([]); setTextBoxes([]); setEditingTextId(null); setSelectedTextId(null); setTextPlaced(false); setPanOffset({ x: 0, y: 0 }); setZoom(100); if (uploadedImageUrl) { URL.revokeObjectURL(uploadedImageUrl); setUploadedImageUrl(null); } };
+
+  useEffect(() => { if (activeTool !== "text") setTextPlaced(false); }, [activeTool]);
 
   const isProcessing = diagnosticStage !== "idle" && diagnosticStage !== "complete";
 
@@ -669,7 +677,24 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
     } else if (draggingTextId) {
       const pos = getRelativePos(e);
       setTextBoxes(prev => prev.map(t => t.id === draggingTextId ? { ...t, x: pos.x + dragOffset.x, y: pos.y + dragOffset.y } : t));
-    } else if (rotatingTextId) {
+    } else if (resizingTextId) {
+      const rect = imageContainerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const dx = e.clientX - resizeStartX;
+      const scale = zoom / 100;
+      const newWidthPx = Math.max(40, resizeStartWidth + dx / scale);
+      const newWidthPct = (newWidthPx / rect.width) * 100;
+      setTextBoxes(prev => prev.map(t => t.id === resizingTextId ? { ...t, width: newWidthPct } : t));
+    } else if (draggingMeasurePoint) {
+      const pos = getRelativePos(e);
+      setMeasurements(prev => prev.map(m => {
+        if (m.id !== draggingMeasurePoint.measureId) return m;
+        if (draggingMeasurePoint.point === "start") return { ...m, x1: pos.x + dragElementOffset.x, y1: pos.y + dragElementOffset.y };
+        return { ...m, x2: pos.x + dragElementOffset.x, y2: pos.y + dragElementOffset.y };
+      }));
+    } else if (draggingAnnotation) {
+      const pos = getRelativePos(e);
+      setAnnotations(prev => prev.map(a => a.id === draggingAnnotation ? { ...a, x: pos.x + dragElementOffset.x, y: pos.y + dragElementOffset.y } : a));
       const rect = imageContainerRef.current?.getBoundingClientRect();
       if (!rect) return;
       const mx = e.clientX - rect.left;
@@ -690,6 +715,9 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
     }
     if (draggingTextId) setDraggingTextId(null);
     if (rotatingTextId) setRotatingTextId(null);
+    if (resizingTextId) setResizingTextId(null);
+    if (draggingMeasurePoint) setDraggingMeasurePoint(null);
+    if (draggingAnnotation) setDraggingAnnotation(null);
   };
 
   const handleTextDragStart = (e: React.MouseEvent, tb: typeof textBoxes[0]) => {
@@ -716,6 +744,41 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
     setSelectedTextId(tb.id);
   };
 
+  const handleResizeStart = (e: React.MouseEvent, tb: typeof textBoxes[0]) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const rect = imageContainerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setResizingTextId(tb.id);
+    setResizeStartX(e.clientX);
+    setResizeStartWidth((tb.width / 100) * rect.width);
+    setSelectedTextId(tb.id);
+  };
+
+  const handleMeasurePointDrag = (e: React.MouseEvent, measureId: string, point: "start" | "end") => {
+    if (activeTool !== "select") return;
+    e.stopPropagation();
+    e.preventDefault();
+    const m = measurements.find(mm => mm.id === measureId);
+    if (!m) return;
+    const pos = getRelativePos(e);
+    const px = point === "start" ? m.x1 : m.x2;
+    const py = point === "start" ? m.y1 : m.y2;
+    setDragElementOffset({ x: px - pos.x, y: py - pos.y });
+    setDraggingMeasurePoint({ measureId, point });
+  };
+
+  const handleAnnotationDrag = (e: React.MouseEvent, annotationId: string) => {
+    if (activeTool !== "select") return;
+    e.stopPropagation();
+    e.preventDefault();
+    const a = annotations.find(aa => aa.id === annotationId);
+    if (!a) return;
+    const pos = getRelativePos(e);
+    setDragElementOffset({ x: a.x - pos.x, y: a.y - pos.y });
+    setDraggingAnnotation(annotationId);
+  };
+
   const handleImageClick = (e: React.MouseEvent) => {
     if (diagnosticStage !== "complete") return;
     const pos = getRelativePos(e);
@@ -731,13 +794,14 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
     } else if (activeTool === "annotate") {
       const label = `A${annotations.length + 1}`;
       setAnnotations(prev => [...prev, { id: `a${Date.now()}`, x: pos.x, y: pos.y, label }]);
-    } else if (activeTool === "text") {
+    } else if (activeTool === "text" && !textPlaced) {
       const newId = `t${Date.now()}`;
-      setTextBoxes(prev => [...prev, { id: newId, x: pos.x, y: pos.y, text: "Text", color: textColor, fontSize: textFontSize, rotation: 0 }]);
+      setTextBoxes(prev => [...prev, { id: newId, x: pos.x, y: pos.y, text: "Text", color: textColor, fontSize: textFontSize, rotation: 0, width: 15 }]);
       setSelectedTextId(newId);
       setEditingTextId(newId);
+      setTextPlaced(true);
+      setTimeout(() => setActiveTool("select"), 50);
     } else if (activeTool === "select") {
-      // Click on empty area deselects
       setSelectedTextId(null);
       setEditingTextId(null);
     }
@@ -915,20 +979,26 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                       )}
                     </div>
 
-                    {/* Measurement overlays — inside transform container so they follow zoom/pan */}
-                    <svg className="absolute inset-0 w-full h-full pointer-events-none z-20">
+                    {/* Measurement overlays — draggable points in select mode */}
+                    <svg className="absolute inset-0 w-full h-full z-20" style={{ pointerEvents: activeTool === "select" ? "auto" : "none" }}>
                       {measurements.map(m => (
                         <g key={m.id}>
-                          <line x1={`${m.x1}%`} y1={`${m.y1}%`} x2={`${m.x2}%`} y2={`${m.y2}%`} stroke="hsl(var(--primary))" strokeWidth="2" strokeDasharray="4 2" />
-                          <circle cx={`${m.x1}%`} cy={`${m.y1}%`} r="3" fill="hsl(var(--primary))" />
-                          <circle cx={`${m.x2}%`} cy={`${m.y2}%`} r="3" fill="hsl(var(--primary))" />
-                          <text x={`${(m.x1 + m.x2) / 2}%`} y={`${(m.y1 + m.y2) / 2 - 2}%`} fill="hsl(var(--primary))" fontSize="10" textAnchor="middle" fontWeight="600">
+                          <line x1={`${m.x1}%`} y1={`${m.y1}%`} x2={`${m.x2}%`} y2={`${m.y2}%`} stroke="hsl(var(--primary))" strokeWidth="2" strokeDasharray="4 2" style={{ pointerEvents: "none" }} />
+                          <circle cx={`${m.x1}%`} cy={`${m.y1}%`} r="6" fill="hsl(var(--primary))" fillOpacity="0.5" stroke="hsl(var(--primary))" strokeWidth="2"
+                            style={{ cursor: activeTool === "select" ? "grab" : "default" }}
+                            onMouseDown={e => handleMeasurePointDrag(e, m.id, "start")} />
+                          <circle cx={`${m.x1}%`} cy={`${m.y1}%`} r="3" fill="hsl(var(--primary))" style={{ pointerEvents: "none" }} />
+                          <circle cx={`${m.x2}%`} cy={`${m.y2}%`} r="6" fill="hsl(var(--primary))" fillOpacity="0.5" stroke="hsl(var(--primary))" strokeWidth="2"
+                            style={{ cursor: activeTool === "select" ? "grab" : "default" }}
+                            onMouseDown={e => handleMeasurePointDrag(e, m.id, "end")} />
+                          <circle cx={`${m.x2}%`} cy={`${m.y2}%`} r="3" fill="hsl(var(--primary))" style={{ pointerEvents: "none" }} />
+                          <text x={`${(m.x1 + m.x2) / 2}%`} y={`${(m.y1 + m.y2) / 2 - 2}%`} fill="hsl(var(--primary))" fontSize="10" textAnchor="middle" fontWeight="600" style={{ pointerEvents: "none" }}>
                             {Math.round(Math.sqrt(Math.pow(m.x2 - m.x1, 2) + Math.pow(m.y2 - m.y1, 2)) * 2.5)}mm
                           </text>
                         </g>
                       ))}
                       {measureStart && (
-                        <circle cx={`${measureStart.x}%`} cy={`${measureStart.y}%`} r="4" fill="hsl(var(--primary))" opacity="0.7">
+                        <circle cx={`${measureStart.x}%`} cy={`${measureStart.y}%`} r="4" fill="hsl(var(--primary))" opacity="0.7" style={{ pointerEvents: "none" }}>
                           <animate attributeName="r" values="3;5;3" dur="1s" repeatCount="indefinite" />
                         </circle>
                       )}
@@ -973,9 +1043,12 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                       </div>
                     )}
 
-                    {/* Annotation overlays — inside transform container */}
+                    {/* Annotation overlays — draggable in select mode */}
                     {annotations.map(a => (
-                      <div key={a.id} className="absolute z-20 pointer-events-none" style={{ left: `${a.x}%`, top: `${a.y}%`, transform: "translate(-50%, -50%)" }}>
+                      <div key={a.id} className={cn("absolute z-20", activeTool === "select" ? "pointer-events-auto cursor-grab" : "pointer-events-none")}
+                        style={{ left: `${a.x}%`, top: `${a.y}%`, transform: "translate(-50%, -50%)" }}
+                        onMouseDown={e => handleAnnotationDrag(e, a.id)}
+                      >
                         <div className="w-5 h-5 rounded-full bg-warning border-2 border-warning-foreground flex items-center justify-center">
                           <span className="text-[8px] font-bold text-warning-foreground">{a.label}</span>
                         </div>
@@ -990,7 +1063,7 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                         <div
                           key={tb.id}
                           className={cn("absolute z-25", isSelected && "z-30")}
-                          style={{ left: `${tb.x}%`, top: `${tb.y}%`, transform: `translate(-50%, -50%) rotate(${tb.rotation}deg)` }}
+                          style={{ left: `${tb.x}%`, top: `${tb.y}%`, transform: `translate(-50%, -50%) rotate(${tb.rotation}deg)`, width: `${tb.width}%`, minWidth: "40px" }}
                           onClick={e => { e.stopPropagation(); setSelectedTextId(tb.id); }}
                           onDoubleClick={e => { e.stopPropagation(); setEditingTextId(tb.id); }}
                           onMouseDown={e => {
@@ -1000,19 +1073,21 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                         >
                           <div className="relative">
                             {isEditing ? (
-                              <input
+                              <textarea
                                 autoFocus
                                 value={tb.text}
                                 onChange={e => setTextBoxes(prev => prev.map(t => t.id === tb.id ? { ...t, text: e.target.value } : t))}
-                                onKeyDown={e => { if (e.key === "Enter") setEditingTextId(null); if (e.key === "Escape") { setEditingTextId(null); setSelectedTextId(null); } }}
-                                className="bg-transparent border border-dashed border-white/60 px-1.5 py-0.5 outline-none min-w-[60px]"
-                                style={{ color: tb.color, fontSize: `${tb.fontSize}px`, fontWeight: 600 }}
+                                onKeyDown={e => { if (e.key === "Escape") { setEditingTextId(null); setSelectedTextId(null); } }}
+                                className="bg-transparent border border-dashed border-white/60 px-1.5 py-0.5 outline-none w-full resize-none overflow-hidden"
+                                style={{ color: tb.color, fontSize: `${tb.fontSize}px`, fontWeight: 600, minHeight: `${tb.fontSize + 8}px` }}
                                 onClick={e => e.stopPropagation()}
                                 onMouseDown={e => e.stopPropagation()}
+                                rows={1}
+                                onInput={e => { const el = e.target as HTMLTextAreaElement; el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; }}
                               />
                             ) : (
                               <span
-                                className={cn("cursor-move select-none drop-shadow-md rounded px-1", isSelected ? "ring-2 ring-primary/60" : "hover:ring-1 hover:ring-white/40")}
+                                className={cn("cursor-move select-none drop-shadow-md rounded px-1 block break-words", isSelected ? "ring-2 ring-primary/60" : "hover:ring-1 hover:ring-white/40")}
                                 style={{ color: tb.color, fontSize: `${tb.fontSize}px`, fontWeight: 600 }}
                               >{tb.text}</span>
                             )}
@@ -1020,7 +1095,7 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                             {/* Controls visible when selected */}
                             {isSelected && (
                               <>
-                                {/* Rotate handle - draggable circle */}
+                                {/* Rotate handle */}
                                 <div
                                   className="absolute -top-8 left-1/2 -translate-x-1/2 flex flex-col items-center cursor-grab active:cursor-grabbing"
                                   onMouseDown={e => handleRotateStart(e, tb)}
@@ -1030,15 +1105,22 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                                     <RotateCw className="w-2.5 h-2.5 text-primary-foreground" />
                                   </div>
                                 </div>
-                                <span className="absolute -top-3 -right-6 text-[8px] bg-black/60 text-white px-1 rounded">{tb.rotation}°</span>
+                                <span className="absolute -top-3 -right-6 text-[8px] bg-foreground/60 text-background px-1 rounded">{tb.rotation}°</span>
                                 {/* Delete button */}
                                 <button
                                   onClick={e => { e.stopPropagation(); setTextBoxes(prev => prev.filter(t => t.id !== tb.id)); setSelectedTextId(null); setEditingTextId(null); }}
                                   onMouseDown={e => e.stopPropagation()}
                                   className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-destructive flex items-center justify-center shadow-sm hover:bg-destructive/80"
                                 >
-                                  <X className="w-3 h-3 text-white" />
+                                  <X className="w-3 h-3 text-destructive-foreground" />
                                 </button>
+                                {/* Resize handle (right edge) */}
+                                <div
+                                  className="absolute top-1/2 -right-2 -translate-y-1/2 w-3 h-8 bg-primary/80 rounded-sm cursor-ew-resize hover:bg-primary flex items-center justify-center"
+                                  onMouseDown={e => handleResizeStart(e, tb)}
+                                >
+                                  <GripVertical className="w-2 h-2 text-primary-foreground" />
+                                </div>
                               </>
                             )}
                           </div>
@@ -1046,38 +1128,43 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                       );
                     })}
 
-                    {/* Text tool options panel */}
-                    {(activeTool === "text" || selectedTextId) && diagnosticStage === "complete" && (
-                      <div ref={textOptionsRef} className="absolute top-3 left-3 z-30 bg-background/95 backdrop-blur-sm border rounded-xl p-2.5 shadow-lg space-y-2 w-[170px]" onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
-                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Text Color</p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {penColors.map(c => (
-                            <button
-                              key={c.id}
-                              onClick={e => { e.stopPropagation(); setTextColor(c.value); const tid = selectedTextId || editingTextId; if (tid) setTextBoxes(prev => prev.map(t => t.id === tid ? { ...t, color: c.value } : t)); }}
-                              className={cn("w-6 h-6 rounded-full border-2 transition-all", textColor === c.value ? "border-foreground scale-110 shadow-sm" : "border-transparent hover:scale-105")}
-                              style={{ backgroundColor: c.value }}
-                              title={c.label}
-                            />
-                          ))}
-                        </div>
-                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider pt-1">Font Size · {textFontSize}px</p>
-                        <input
-                          type="range" min="8" max="36" value={selectedTextId ? (textBoxes.find(t => t.id === selectedTextId)?.fontSize ?? textFontSize) : textFontSize}
-                          onChange={e => { const v = parseInt(e.target.value); setTextFontSize(v); const tid = selectedTextId || editingTextId; if (tid) setTextBoxes(prev => prev.map(t => t.id === tid ? { ...t, fontSize: v } : t)); }}
-                          className="w-full accent-primary h-1 cursor-pointer"
-                          onClick={e => e.stopPropagation()}
-                        />
-                        {selectedTextId && (
+                    {/* Text tool options panel — positioned near selected text */}
+                    {selectedTextId && diagnosticStage === "complete" && (() => {
+                      const selTb = textBoxes.find(t => t.id === selectedTextId);
+                      const panelTop = selTb ? Math.max(3, Math.min(selTb.y - 15, 70)) : 3;
+                      const panelLeft = selTb ? Math.min(selTb.x + selTb.width / 2 + 3, 70) : 3;
+                      return (
+                        <div ref={textOptionsRef} className="absolute z-40 bg-background/95 backdrop-blur-sm border rounded-xl p-2.5 shadow-lg space-y-2 w-[170px]"
+                          style={{ top: `${panelTop}%`, left: `${panelLeft}%` }}
+                          onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
+                          <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Text Color</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {penColors.map(c => (
+                              <button
+                                key={c.id}
+                                onClick={e => { e.stopPropagation(); setTextColor(c.value); const tid = selectedTextId || editingTextId; if (tid) setTextBoxes(prev => prev.map(t => t.id === tid ? { ...t, color: c.value } : t)); }}
+                                className={cn("w-6 h-6 rounded-full border-2 transition-all", textColor === c.value ? "border-foreground scale-110 shadow-sm" : "border-transparent hover:scale-105")}
+                                style={{ backgroundColor: c.value }}
+                                title={c.label}
+                              />
+                            ))}
+                          </div>
+                          <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider pt-1">Font Size · {textBoxes.find(t => t.id === selectedTextId)?.fontSize ?? textFontSize}px</p>
+                          <input
+                            type="range" min="8" max="36" value={textBoxes.find(t => t.id === selectedTextId)?.fontSize ?? textFontSize}
+                            onChange={e => { const v = parseInt(e.target.value); setTextFontSize(v); if (selectedTextId) setTextBoxes(prev => prev.map(t => t.id === selectedTextId ? { ...t, fontSize: v } : t)); }}
+                            className="w-full accent-primary h-1 cursor-pointer"
+                            onClick={e => e.stopPropagation()}
+                          />
                           <button
                             onClick={e => { e.stopPropagation(); setTextBoxes(prev => prev.filter(t => t.id !== selectedTextId)); setSelectedTextId(null); setEditingTextId(null); }}
                             className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[10px] font-medium text-destructive bg-destructive/10 hover:bg-destructive/20 transition-colors"
                           >
                             <Trash2 className="w-3 h-3" />Delete Text Box
                           </button>
-                        )}
-                      </div>
-                    )}
+                        </div>
+                      );
+                    })()}
 
                     <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between z-10">
                       <span className="text-[10px] text-white/70 bg-black/40 px-2 py-0.5 rounded truncate">{uploadedFileName}</span>
