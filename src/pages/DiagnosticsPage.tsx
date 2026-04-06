@@ -739,13 +739,14 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
     } else if (activeTool === "annotate") {
       const label = `A${annotations.length + 1}`;
       setAnnotations(prev => [...prev, { id: `a${Date.now()}`, x: pos.x, y: pos.y, label }]);
-    } else if (activeTool === "text") {
+    } else if (activeTool === "text" && !textPlaced) {
       const newId = `t${Date.now()}`;
-      setTextBoxes(prev => [...prev, { id: newId, x: pos.x, y: pos.y, text: "Text", color: textColor, fontSize: textFontSize, rotation: 0 }]);
+      setTextBoxes(prev => [...prev, { id: newId, x: pos.x, y: pos.y, text: "Text", color: textColor, fontSize: textFontSize, rotation: 0, width: 15 }]);
       setSelectedTextId(newId);
       setEditingTextId(newId);
+      setTextPlaced(true);
+      setTimeout(() => setActiveTool("select"), 50);
     } else if (activeTool === "select") {
-      // Click on empty area deselects
       setSelectedTextId(null);
       setEditingTextId(null);
     }
