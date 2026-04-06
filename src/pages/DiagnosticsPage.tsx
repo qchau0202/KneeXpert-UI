@@ -1043,9 +1043,12 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                       </div>
                     )}
 
-                    {/* Annotation overlays — inside transform container */}
+                    {/* Annotation overlays — draggable in select mode */}
                     {annotations.map(a => (
-                      <div key={a.id} className="absolute z-20 pointer-events-none" style={{ left: `${a.x}%`, top: `${a.y}%`, transform: "translate(-50%, -50%)" }}>
+                      <div key={a.id} className={cn("absolute z-20", activeTool === "select" ? "pointer-events-auto cursor-grab" : "pointer-events-none")}
+                        style={{ left: `${a.x}%`, top: `${a.y}%`, transform: "translate(-50%, -50%)" }}
+                        onMouseDown={e => handleAnnotationDrag(e, a.id)}
+                      >
                         <div className="w-5 h-5 rounded-full bg-warning border-2 border-warning-foreground flex items-center justify-center">
                           <span className="text-[8px] font-bold text-warning-foreground">{a.label}</span>
                         </div>
@@ -1060,7 +1063,7 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                         <div
                           key={tb.id}
                           className={cn("absolute z-25", isSelected && "z-30")}
-                          style={{ left: `${tb.x}%`, top: `${tb.y}%`, transform: `translate(-50%, -50%) rotate(${tb.rotation}deg)` }}
+                          style={{ left: `${tb.x}%`, top: `${tb.y}%`, transform: `translate(-50%, -50%) rotate(${tb.rotation}deg)`, width: `${tb.width}%`, minWidth: "40px" }}
                           onClick={e => { e.stopPropagation(); setSelectedTextId(tb.id); }}
                           onDoubleClick={e => { e.stopPropagation(); setEditingTextId(tb.id); }}
                           onMouseDown={e => {
@@ -1070,19 +1073,21 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                         >
                           <div className="relative">
                             {isEditing ? (
-                              <input
+                              <textarea
                                 autoFocus
                                 value={tb.text}
                                 onChange={e => setTextBoxes(prev => prev.map(t => t.id === tb.id ? { ...t, text: e.target.value } : t))}
-                                onKeyDown={e => { if (e.key === "Enter") setEditingTextId(null); if (e.key === "Escape") { setEditingTextId(null); setSelectedTextId(null); } }}
-                                className="bg-transparent border border-dashed border-white/60 px-1.5 py-0.5 outline-none min-w-[60px]"
-                                style={{ color: tb.color, fontSize: `${tb.fontSize}px`, fontWeight: 600 }}
+                                onKeyDown={e => { if (e.key === "Escape") { setEditingTextId(null); setSelectedTextId(null); } }}
+                                className="bg-transparent border border-dashed border-white/60 px-1.5 py-0.5 outline-none w-full resize-none overflow-hidden"
+                                style={{ color: tb.color, fontSize: `${tb.fontSize}px`, fontWeight: 600, minHeight: `${tb.fontSize + 8}px` }}
                                 onClick={e => e.stopPropagation()}
                                 onMouseDown={e => e.stopPropagation()}
+                                rows={1}
+                                onInput={e => { const el = e.target as HTMLTextAreaElement; el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; }}
                               />
                             ) : (
                               <span
-                                className={cn("cursor-move select-none drop-shadow-md rounded px-1", isSelected ? "ring-2 ring-primary/60" : "hover:ring-1 hover:ring-white/40")}
+                                className={cn("cursor-move select-none drop-shadow-md rounded px-1 block break-words", isSelected ? "ring-2 ring-primary/60" : "hover:ring-1 hover:ring-white/40")}
                                 style={{ color: tb.color, fontSize: `${tb.fontSize}px`, fontWeight: 600 }}
                               >{tb.text}</span>
                             )}
@@ -1090,7 +1095,7 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                             {/* Controls visible when selected */}
                             {isSelected && (
                               <>
-                                {/* Rotate handle - draggable circle */}
+                                {/* Rotate handle */}
                                 <div
                                   className="absolute -top-8 left-1/2 -translate-x-1/2 flex flex-col items-center cursor-grab active:cursor-grabbing"
                                   onMouseDown={e => handleRotateStart(e, tb)}
@@ -1100,15 +1105,22 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                                     <RotateCw className="w-2.5 h-2.5 text-primary-foreground" />
                                   </div>
                                 </div>
-                                <span className="absolute -top-3 -right-6 text-[8px] bg-black/60 text-white px-1 rounded">{tb.rotation}°</span>
+                                <span className="absolute -top-3 -right-6 text-[8px] bg-foreground/60 text-background px-1 rounded">{tb.rotation}°</span>
                                 {/* Delete button */}
                                 <button
                                   onClick={e => { e.stopPropagation(); setTextBoxes(prev => prev.filter(t => t.id !== tb.id)); setSelectedTextId(null); setEditingTextId(null); }}
                                   onMouseDown={e => e.stopPropagation()}
                                   className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-destructive flex items-center justify-center shadow-sm hover:bg-destructive/80"
                                 >
-                                  <X className="w-3 h-3 text-white" />
+                                  <X className="w-3 h-3 text-destructive-foreground" />
                                 </button>
+                                {/* Resize handle (right edge) */}
+                                <div
+                                  className="absolute top-1/2 -right-2 -translate-y-1/2 w-3 h-8 bg-primary/80 rounded-sm cursor-ew-resize hover:bg-primary flex items-center justify-center"
+                                  onMouseDown={e => handleResizeStart(e, tb)}
+                                >
+                                  <GripVertical className="w-2 h-2 text-primary-foreground" />
+                                </div>
                               </>
                             )}
                           </div>
@@ -1116,38 +1128,43 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                       );
                     })}
 
-                    {/* Text tool options panel */}
-                    {(activeTool === "text" || selectedTextId) && diagnosticStage === "complete" && (
-                      <div ref={textOptionsRef} className="absolute top-3 left-3 z-30 bg-background/95 backdrop-blur-sm border rounded-xl p-2.5 shadow-lg space-y-2 w-[170px]" onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
-                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Text Color</p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {penColors.map(c => (
-                            <button
-                              key={c.id}
-                              onClick={e => { e.stopPropagation(); setTextColor(c.value); const tid = selectedTextId || editingTextId; if (tid) setTextBoxes(prev => prev.map(t => t.id === tid ? { ...t, color: c.value } : t)); }}
-                              className={cn("w-6 h-6 rounded-full border-2 transition-all", textColor === c.value ? "border-foreground scale-110 shadow-sm" : "border-transparent hover:scale-105")}
-                              style={{ backgroundColor: c.value }}
-                              title={c.label}
-                            />
-                          ))}
-                        </div>
-                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider pt-1">Font Size · {textFontSize}px</p>
-                        <input
-                          type="range" min="8" max="36" value={selectedTextId ? (textBoxes.find(t => t.id === selectedTextId)?.fontSize ?? textFontSize) : textFontSize}
-                          onChange={e => { const v = parseInt(e.target.value); setTextFontSize(v); const tid = selectedTextId || editingTextId; if (tid) setTextBoxes(prev => prev.map(t => t.id === tid ? { ...t, fontSize: v } : t)); }}
-                          className="w-full accent-primary h-1 cursor-pointer"
-                          onClick={e => e.stopPropagation()}
-                        />
-                        {selectedTextId && (
+                    {/* Text tool options panel — positioned near selected text */}
+                    {selectedTextId && diagnosticStage === "complete" && (() => {
+                      const selTb = textBoxes.find(t => t.id === selectedTextId);
+                      const panelTop = selTb ? Math.max(3, Math.min(selTb.y - 15, 70)) : 3;
+                      const panelLeft = selTb ? Math.min(selTb.x + selTb.width / 2 + 3, 70) : 3;
+                      return (
+                        <div ref={textOptionsRef} className="absolute z-40 bg-background/95 backdrop-blur-sm border rounded-xl p-2.5 shadow-lg space-y-2 w-[170px]"
+                          style={{ top: `${panelTop}%`, left: `${panelLeft}%` }}
+                          onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
+                          <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Text Color</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {penColors.map(c => (
+                              <button
+                                key={c.id}
+                                onClick={e => { e.stopPropagation(); setTextColor(c.value); const tid = selectedTextId || editingTextId; if (tid) setTextBoxes(prev => prev.map(t => t.id === tid ? { ...t, color: c.value } : t)); }}
+                                className={cn("w-6 h-6 rounded-full border-2 transition-all", textColor === c.value ? "border-foreground scale-110 shadow-sm" : "border-transparent hover:scale-105")}
+                                style={{ backgroundColor: c.value }}
+                                title={c.label}
+                              />
+                            ))}
+                          </div>
+                          <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider pt-1">Font Size · {textBoxes.find(t => t.id === selectedTextId)?.fontSize ?? textFontSize}px</p>
+                          <input
+                            type="range" min="8" max="36" value={textBoxes.find(t => t.id === selectedTextId)?.fontSize ?? textFontSize}
+                            onChange={e => { const v = parseInt(e.target.value); setTextFontSize(v); if (selectedTextId) setTextBoxes(prev => prev.map(t => t.id === selectedTextId ? { ...t, fontSize: v } : t)); }}
+                            className="w-full accent-primary h-1 cursor-pointer"
+                            onClick={e => e.stopPropagation()}
+                          />
                           <button
                             onClick={e => { e.stopPropagation(); setTextBoxes(prev => prev.filter(t => t.id !== selectedTextId)); setSelectedTextId(null); setEditingTextId(null); }}
                             className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[10px] font-medium text-destructive bg-destructive/10 hover:bg-destructive/20 transition-colors"
                           >
                             <Trash2 className="w-3 h-3" />Delete Text Box
                           </button>
-                        )}
-                      </div>
-                    )}
+                        </div>
+                      );
+                    })()}
 
                     <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between z-10">
                       <span className="text-[10px] text-white/70 bg-black/40 px-2 py-0.5 rounded truncate">{uploadedFileName}</span>
