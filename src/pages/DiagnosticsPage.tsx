@@ -715,6 +715,9 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
     }
     if (draggingTextId) setDraggingTextId(null);
     if (rotatingTextId) setRotatingTextId(null);
+    if (resizingTextId) setResizingTextId(null);
+    if (draggingMeasurePoint) setDraggingMeasurePoint(null);
+    if (draggingAnnotation) setDraggingAnnotation(null);
   };
 
   const handleTextDragStart = (e: React.MouseEvent, tb: typeof textBoxes[0]) => {
