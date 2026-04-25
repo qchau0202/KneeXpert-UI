@@ -13,6 +13,7 @@ import { ConfidenceGauge } from "@/components/ConfidenceGauge";
 import { StatusBadge } from "@/components/StatusBadge";
 import { DiagnosticsToolbar } from "@/components/diagnostics/DiagnosticsToolbar";
 import { MriPipelinePanel } from "@/components/diagnostics/MriPipelinePanel";
+import { KonvaImageEditor, type KonvaImageEditorHandle, type EditorTool } from "@/components/diagnostics/KonvaImageEditor";
 import { cn } from "@/lib/utils";
 
 // --- Constants ---
@@ -544,6 +545,7 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   const [draggingAnnotation, setDraggingAnnotation] = useState<string | null>(null);
   const [dragElementOffset, setDragElementOffset] = useState({ x: 0, y: 0 });
   const textOptionsRef = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<KonvaImageEditorHandle>(null);
 
   const penColors = [
     { id: "red", value: "#ef4444", label: "Red" },
@@ -658,10 +660,12 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   };
 
   const handleImageMouseDown = (e: React.MouseEvent) => {
+    // Konva editor handles everything when scan is loaded
+    if (diagnosticStage === "complete") return;
     if (activeTool === "pan") {
       setIsPanning(true);
       setPanStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
-    } else if (activeTool === "draw" && diagnosticStage === "complete") {
+    } else if (activeTool === "draw") {
       setIsDrawing(true);
       const pos = getRelativePos(e);
       setCurrentDrawPath([pos]);
@@ -669,6 +673,7 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   };
 
   const handleImageMouseMove = (e: React.MouseEvent) => {
+    if (diagnosticStage === "complete") return;
     if (activeTool === "pan" && isPanning) {
       setPanOffset({ x: e.clientX - panStart.x, y: e.clientY - panStart.y });
     } else if (activeTool === "draw" && isDrawing) {
@@ -705,6 +710,7 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   };
 
   const handleImageMouseUp = () => {
+    if (diagnosticStage === "complete") return;
     if (activeTool === "pan") setIsPanning(false);
     if (activeTool === "draw" && isDrawing) {
       setIsDrawing(false);
@@ -780,7 +786,7 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   };
 
   const handleImageClick = (e: React.MouseEvent) => {
-    if (diagnosticStage !== "complete") return;
+    if (diagnosticStage === "complete") return; // Konva editor owns interactions
     const pos = getRelativePos(e);
     if (activeTool === "zoom") {
       setZoom(prev => Math.min(200, prev + 25));
@@ -967,62 +973,29 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                     </button>
                   </motion.div>
                 ) : diagnosticStage === "complete" ? (
-                  <motion.div key="result-image" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                    className="w-full h-full relative"
-                    style={{ transform: `scale(${zoom / 100}) translate(${panOffset.x / 4}px, ${panOffset.y / 4}px)`, filter: `brightness(${brightness}%) contrast(${contrast}%)`, transformOrigin: "center center" }}
-                  >
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      {uploadedImageUrl ? (
-                        <img src={uploadedImageUrl} alt="Uploaded scan" className="w-full h-full object-contain" draggable={false} />
-                      ) : (
-                        <div className="w-full h-full bg-foreground/[0.08]" />
-                      )}
-                    </div>
-
-                    {/* Measurement overlays — draggable points in select mode */}
-                    <svg className="absolute inset-0 w-full h-full z-20" style={{ pointerEvents: activeTool === "select" ? "auto" : "none" }}>
-                      {measurements.map(m => (
-                        <g key={m.id}>
-                          <line x1={`${m.x1}%`} y1={`${m.y1}%`} x2={`${m.x2}%`} y2={`${m.y2}%`} stroke="hsl(var(--primary))" strokeWidth="2" strokeDasharray="4 2" style={{ pointerEvents: "none" }} />
-                          <circle cx={`${m.x1}%`} cy={`${m.y1}%`} r="6" fill="hsl(var(--primary))" fillOpacity="0.5" stroke="hsl(var(--primary))" strokeWidth="2"
-                            style={{ cursor: activeTool === "select" ? "grab" : "default" }}
-                            onMouseDown={e => handleMeasurePointDrag(e, m.id, "start")} />
-                          <circle cx={`${m.x1}%`} cy={`${m.y1}%`} r="3" fill="hsl(var(--primary))" style={{ pointerEvents: "none" }} />
-                          <circle cx={`${m.x2}%`} cy={`${m.y2}%`} r="6" fill="hsl(var(--primary))" fillOpacity="0.5" stroke="hsl(var(--primary))" strokeWidth="2"
-                            style={{ cursor: activeTool === "select" ? "grab" : "default" }}
-                            onMouseDown={e => handleMeasurePointDrag(e, m.id, "end")} />
-                          <circle cx={`${m.x2}%`} cy={`${m.y2}%`} r="3" fill="hsl(var(--primary))" style={{ pointerEvents: "none" }} />
-                          <text x={`${(m.x1 + m.x2) / 2}%`} y={`${(m.y1 + m.y2) / 2 - 2}%`} fill="hsl(var(--primary))" fontSize="10" textAnchor="middle" fontWeight="600" style={{ pointerEvents: "none" }}>
-                            {Math.round(Math.sqrt(Math.pow(m.x2 - m.x1, 2) + Math.pow(m.y2 - m.y1, 2)) * 2.5)}mm
-                          </text>
-                        </g>
-                      ))}
-                      {measureStart && (
-                        <circle cx={`${measureStart.x}%`} cy={`${measureStart.y}%`} r="4" fill="hsl(var(--primary))" opacity="0.7" style={{ pointerEvents: "none" }}>
-                          <animate attributeName="r" values="3;5;3" dur="1s" repeatCount="indefinite" />
-                        </circle>
-                      )}
-                    </svg>
-
-                    {/* Drawing overlays — inside transform container */}
-                    <svg className="absolute inset-0 w-full h-full pointer-events-none z-20" viewBox="0 0 100 100" preserveAspectRatio="none">
-                      {drawingPaths.map(dp => (
-                        <polyline key={dp.id} points={dp.points.map(p => `${p.x},${p.y}`).join(' ')} fill="none" stroke={dp.color} strokeWidth={dp.size * 0.15} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-                      ))}
-                      {currentDrawPath.length > 1 && (
-                        <polyline points={currentDrawPath.map(p => `${p.x},${p.y}`).join(' ')} fill="none" stroke={drawColor} strokeWidth={drawSize * 0.15} strokeLinecap="round" strokeLinejoin="round" opacity="0.7" vectorEffect="non-scaling-stroke" />
-                      )}
-                    </svg>
-
-                    {/* Pen options floating panel */}
-                    {activeTool === "draw" && diagnosticStage === "complete" && (
-                      <div className="absolute top-3 left-3 z-30 bg-background/95 backdrop-blur-sm border rounded-xl p-2.5 shadow-lg space-y-2 w-[160px]" onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
+                  <motion.div key="result-image" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0">
+                    <KonvaImageEditor
+                      ref={editorRef}
+                      imageUrl={uploadedImageUrl}
+                      tool={activeTool as EditorTool}
+                      brightness={brightness}
+                      contrast={contrast}
+                      zoom={zoom}
+                      drawColor={drawColor}
+                      drawSize={drawSize}
+                      textColor={textColor}
+                      textFontSize={textFontSize}
+                      onToolChange={(t) => setActiveTool(t)}
+                    />
+                    {/* Draw options panel */}
+                    {activeTool === "draw" && (
+                      <div className="absolute top-3 left-3 z-30 bg-background/95 backdrop-blur-sm border rounded-xl p-2.5 shadow-lg space-y-2 w-[170px]">
                         <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Pen Color</p>
                         <div className="flex flex-wrap gap-1.5">
                           {penColors.map(c => (
                             <button
                               key={c.id}
-                              onClick={(e) => { e.stopPropagation(); setDrawColor(c.value); }}
+                              onClick={() => setDrawColor(c.value)}
                               className={cn("w-6 h-6 rounded-full border-2 transition-all", drawColor === c.value ? "border-foreground scale-110 shadow-sm" : "border-transparent hover:scale-105")}
                               style={{ backgroundColor: c.value }}
                               title={c.label}
@@ -1030,143 +1003,34 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                           ))}
                         </div>
                         <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider pt-1">Size · {drawSize}px</p>
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: drawColor }} />
-                          <input
-                            type="range" min="1" max="10" value={drawSize}
-                            onChange={e => { e.stopPropagation(); setDrawSize(parseInt(e.target.value)); }}
-                            className="flex-1 accent-primary h-1 cursor-pointer"
-                            onClick={e => e.stopPropagation()}
-                          />
-                          <div className="rounded-full" style={{ backgroundColor: drawColor, width: `${Math.max(drawSize * 1.5, 4)}px`, height: `${Math.max(drawSize * 1.5, 4)}px` }} />
-                        </div>
+                        <input type="range" min="1" max="10" value={drawSize}
+                          onChange={e => setDrawSize(parseInt(e.target.value))}
+                          className="w-full accent-primary h-1 cursor-pointer" />
                       </div>
                     )}
-
-                    {/* Annotation overlays — draggable in select mode */}
-                    {annotations.map(a => (
-                      <div key={a.id} className={cn("absolute z-20", activeTool === "select" ? "pointer-events-auto cursor-grab" : "pointer-events-none")}
-                        style={{ left: `${a.x}%`, top: `${a.y}%`, transform: "translate(-50%, -50%)" }}
-                        onMouseDown={e => handleAnnotationDrag(e, a.id)}
-                      >
-                        <div className="w-5 h-5 rounded-full bg-warning border-2 border-warning-foreground flex items-center justify-center">
-                          <span className="text-[8px] font-bold text-warning-foreground">{a.label}</span>
+                    {/* Text default options panel — applies to next text box */}
+                    {activeTool === "text" && (
+                      <div className="absolute top-3 left-3 z-30 bg-background/95 backdrop-blur-sm border rounded-xl p-2.5 shadow-lg space-y-2 w-[170px]">
+                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Text Color</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {penColors.map(c => (
+                            <button
+                              key={c.id}
+                              onClick={() => setTextColor(c.value)}
+                              className={cn("w-6 h-6 rounded-full border-2 transition-all", textColor === c.value ? "border-foreground scale-110 shadow-sm" : "border-transparent hover:scale-105")}
+                              style={{ backgroundColor: c.value }}
+                              title={c.label}
+                            />
+                          ))}
                         </div>
+                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider pt-1">Font · {textFontSize}px</p>
+                        <input type="range" min="10" max="48" value={textFontSize}
+                          onChange={e => setTextFontSize(parseInt(e.target.value))}
+                          className="w-full accent-primary h-1 cursor-pointer" />
+                        <p className="text-[9px] text-muted-foreground italic">Click on the scan to place a text box</p>
                       </div>
-                    ))}
-
-                    {/* Text box overlays */}
-                    {textBoxes.map(tb => {
-                      const isSelected = selectedTextId === tb.id;
-                      const isEditing = editingTextId === tb.id;
-                      return (
-                        <div
-                          key={tb.id}
-                          className={cn("absolute z-25", isSelected && "z-30")}
-                          style={{ left: `${tb.x}%`, top: `${tb.y}%`, transform: `translate(-50%, -50%) rotate(${tb.rotation}deg)`, width: `${tb.width}%`, minWidth: "40px" }}
-                          onClick={e => { e.stopPropagation(); setSelectedTextId(tb.id); }}
-                          onDoubleClick={e => { e.stopPropagation(); setEditingTextId(tb.id); }}
-                          onMouseDown={e => {
-                            if (isEditing) { e.stopPropagation(); return; }
-                            handleTextDragStart(e, tb);
-                          }}
-                        >
-                          <div className="relative">
-                            {isEditing ? (
-                              <textarea
-                                autoFocus
-                                value={tb.text}
-                                onChange={e => setTextBoxes(prev => prev.map(t => t.id === tb.id ? { ...t, text: e.target.value } : t))}
-                                onKeyDown={e => { if (e.key === "Escape") { setEditingTextId(null); setSelectedTextId(null); } }}
-                                className="bg-transparent border border-dashed border-white/60 px-1.5 py-0.5 outline-none w-full resize-none overflow-hidden"
-                                style={{ color: tb.color, fontSize: `${tb.fontSize}px`, fontWeight: 600, minHeight: `${tb.fontSize + 8}px` }}
-                                onClick={e => e.stopPropagation()}
-                                onMouseDown={e => e.stopPropagation()}
-                                rows={1}
-                                onInput={e => { const el = e.target as HTMLTextAreaElement; el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; }}
-                              />
-                            ) : (
-                              <span
-                                className={cn("cursor-move select-none drop-shadow-md rounded px-1 block break-words", isSelected ? "ring-2 ring-primary/60" : "hover:ring-1 hover:ring-white/40")}
-                                style={{ color: tb.color, fontSize: `${tb.fontSize}px`, fontWeight: 600 }}
-                              >{tb.text}</span>
-                            )}
-
-                            {/* Controls visible when selected */}
-                            {isSelected && (
-                              <>
-                                {/* Rotate handle */}
-                                <div
-                                  className="absolute -top-8 left-1/2 -translate-x-1/2 flex flex-col items-center cursor-grab active:cursor-grabbing"
-                                  onMouseDown={e => handleRotateStart(e, tb)}
-                                >
-                                  <div className="w-0.5 h-3 bg-primary/50" />
-                                  <div className="w-4 h-4 rounded-full bg-primary border-2 border-primary-foreground shadow-sm flex items-center justify-center">
-                                    <RotateCw className="w-2.5 h-2.5 text-primary-foreground" />
-                                  </div>
-                                </div>
-                                <span className="absolute -top-3 -right-6 text-[8px] bg-foreground/60 text-background px-1 rounded">{tb.rotation}°</span>
-                                {/* Delete button */}
-                                <button
-                                  onClick={e => { e.stopPropagation(); setTextBoxes(prev => prev.filter(t => t.id !== tb.id)); setSelectedTextId(null); setEditingTextId(null); }}
-                                  onMouseDown={e => e.stopPropagation()}
-                                  className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-destructive flex items-center justify-center shadow-sm hover:bg-destructive/80"
-                                >
-                                  <X className="w-3 h-3 text-destructive-foreground" />
-                                </button>
-                                {/* Resize handle (right edge) */}
-                                <div
-                                  className="absolute top-1/2 -right-2 -translate-y-1/2 w-3 h-8 bg-primary/80 rounded-sm cursor-ew-resize hover:bg-primary flex items-center justify-center"
-                                  onMouseDown={e => handleResizeStart(e, tb)}
-                                >
-                                  <GripVertical className="w-2 h-2 text-primary-foreground" />
-                                </div>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-
-                    {/* Text tool options panel — positioned near selected text */}
-                    {selectedTextId && diagnosticStage === "complete" && (() => {
-                      const selTb = textBoxes.find(t => t.id === selectedTextId);
-                      const panelTop = selTb ? Math.max(3, Math.min(selTb.y - 15, 70)) : 3;
-                      const panelLeft = selTb ? Math.min(selTb.x + selTb.width / 2 + 3, 70) : 3;
-                      return (
-                        <div ref={textOptionsRef} className="absolute z-40 bg-background/95 backdrop-blur-sm border rounded-xl p-2.5 shadow-lg space-y-2 w-[170px]"
-                          style={{ top: `${panelTop}%`, left: `${panelLeft}%` }}
-                          onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
-                          <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Text Color</p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {penColors.map(c => (
-                              <button
-                                key={c.id}
-                                onClick={e => { e.stopPropagation(); setTextColor(c.value); const tid = selectedTextId || editingTextId; if (tid) setTextBoxes(prev => prev.map(t => t.id === tid ? { ...t, color: c.value } : t)); }}
-                                className={cn("w-6 h-6 rounded-full border-2 transition-all", textColor === c.value ? "border-foreground scale-110 shadow-sm" : "border-transparent hover:scale-105")}
-                                style={{ backgroundColor: c.value }}
-                                title={c.label}
-                              />
-                            ))}
-                          </div>
-                          <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider pt-1">Font Size · {textBoxes.find(t => t.id === selectedTextId)?.fontSize ?? textFontSize}px</p>
-                          <input
-                            type="range" min="8" max="36" value={textBoxes.find(t => t.id === selectedTextId)?.fontSize ?? textFontSize}
-                            onChange={e => { const v = parseInt(e.target.value); setTextFontSize(v); if (selectedTextId) setTextBoxes(prev => prev.map(t => t.id === selectedTextId ? { ...t, fontSize: v } : t)); }}
-                            className="w-full accent-primary h-1 cursor-pointer"
-                            onClick={e => e.stopPropagation()}
-                          />
-                          <button
-                            onClick={e => { e.stopPropagation(); setTextBoxes(prev => prev.filter(t => t.id !== selectedTextId)); setSelectedTextId(null); setEditingTextId(null); }}
-                            className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[10px] font-medium text-destructive bg-destructive/10 hover:bg-destructive/20 transition-colors"
-                          >
-                            <Trash2 className="w-3 h-3" />Delete Text Box
-                          </button>
-                        </div>
-                      );
-                    })()}
-
-                    <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between z-10">
+                    )}
+                    <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between z-10 pointer-events-none">
                       <span className="text-[10px] text-white/70 bg-black/40 px-2 py-0.5 rounded truncate">{uploadedFileName}</span>
                       <span className="text-[10px] text-white/70 bg-black/40 px-2 py-0.5 rounded">{selectedView}</span>
                     </div>
@@ -1354,7 +1218,7 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                   <span className="text-muted-foreground ml-1">({result.confidence}%)</span>
                 </p>
                 <div className="flex items-center gap-2">
-                  <button onClick={handleDownloadImage} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border text-sm font-medium text-primary hover:bg-primary hover:text-primary-foreground transition-colors">
+                  <button onClick={() => editorRef.current?.exportPNG(`${patient.name.replace(/\s+/g, "_")}_annotated.png`)} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border text-sm font-medium text-primary hover:bg-primary hover:text-primary-foreground transition-colors">
                     <Download className="w-4 h-4" />Download
                   </button>
                   <button className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border text-sm font-medium text-muted-foreground hover:bg-muted transition-colors">
