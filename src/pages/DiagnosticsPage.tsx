@@ -972,6 +972,26 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                       <Upload className="w-3 h-3 inline mr-1" />Upload
                     </button>
                   </motion.div>
+                ) : diagnosticStage === "complete" ? (
+                  <motion.div key="result-image" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0">
+                    <KonvaImageEditor
+                      ref={editorRef}
+                      imageUrl={uploadedImageUrl}
+                      tool={activeTool as EditorTool}
+                      brightness={brightness}
+                      contrast={contrast}
+                      zoom={zoom}
+                      drawColor={drawColor}
+                      drawSize={drawSize}
+                      textColor={textColor}
+                      textFontSize={textFontSize}
+                      onToolChange={(t) => setActiveTool(t)}
+                    />
+                    <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between z-10 pointer-events-none">
+                      <span className="text-[10px] text-white/70 bg-black/40 px-2 py-0.5 rounded truncate">{uploadedFileName}</span>
+                      <span className="text-[10px] text-white/70 bg-black/40 px-2 py-0.5 rounded">{selectedView}</span>
+                    </div>
+                  </motion.div>
                 ) : (
                   <motion.div key="processing" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                     className="w-72 sm:w-80 p-5 rounded-xl bg-background border shadow-sm"
