@@ -545,6 +545,7 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   const [draggingAnnotation, setDraggingAnnotation] = useState<string | null>(null);
   const [dragElementOffset, setDragElementOffset] = useState({ x: 0, y: 0 });
   const textOptionsRef = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<KonvaImageEditorHandle>(null);
 
   const penColors = [
     { id: "red", value: "#ef4444", label: "Red" },
