@@ -665,7 +665,7 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
     if (activeTool === "pan") {
       setIsPanning(true);
       setPanStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
-    } else if (activeTool === "draw" && diagnosticStage === "complete") {
+    } else if (activeTool === "draw") {
       setIsDrawing(true);
       const pos = getRelativePos(e);
       setCurrentDrawPath([pos]);
