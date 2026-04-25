@@ -987,6 +987,49 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                       textFontSize={textFontSize}
                       onToolChange={(t) => setActiveTool(t)}
                     />
+                    {/* Draw options panel */}
+                    {activeTool === "draw" && (
+                      <div className="absolute top-3 left-3 z-30 bg-background/95 backdrop-blur-sm border rounded-xl p-2.5 shadow-lg space-y-2 w-[170px]">
+                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Pen Color</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {penColors.map(c => (
+                            <button
+                              key={c.id}
+                              onClick={() => setDrawColor(c.value)}
+                              className={cn("w-6 h-6 rounded-full border-2 transition-all", drawColor === c.value ? "border-foreground scale-110 shadow-sm" : "border-transparent hover:scale-105")}
+                              style={{ backgroundColor: c.value }}
+                              title={c.label}
+                            />
+                          ))}
+                        </div>
+                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider pt-1">Size · {drawSize}px</p>
+                        <input type="range" min="1" max="10" value={drawSize}
+                          onChange={e => setDrawSize(parseInt(e.target.value))}
+                          className="w-full accent-primary h-1 cursor-pointer" />
+                      </div>
+                    )}
+                    {/* Text default options panel — applies to next text box */}
+                    {activeTool === "text" && (
+                      <div className="absolute top-3 left-3 z-30 bg-background/95 backdrop-blur-sm border rounded-xl p-2.5 shadow-lg space-y-2 w-[170px]">
+                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Text Color</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {penColors.map(c => (
+                            <button
+                              key={c.id}
+                              onClick={() => setTextColor(c.value)}
+                              className={cn("w-6 h-6 rounded-full border-2 transition-all", textColor === c.value ? "border-foreground scale-110 shadow-sm" : "border-transparent hover:scale-105")}
+                              style={{ backgroundColor: c.value }}
+                              title={c.label}
+                            />
+                          ))}
+                        </div>
+                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider pt-1">Font · {textFontSize}px</p>
+                        <input type="range" min="10" max="48" value={textFontSize}
+                          onChange={e => setTextFontSize(parseInt(e.target.value))}
+                          className="w-full accent-primary h-1 cursor-pointer" />
+                        <p className="text-[9px] text-muted-foreground italic">Click on the scan to place a text box</p>
+                      </div>
+                    )}
                     <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between z-10 pointer-events-none">
                       <span className="text-[10px] text-white/70 bg-black/40 px-2 py-0.5 rounded truncate">{uploadedFileName}</span>
                       <span className="text-[10px] text-white/70 bg-black/40 px-2 py-0.5 rounded">{selectedView}</span>
