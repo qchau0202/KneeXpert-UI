@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react";
 import { Stage, Layer, Image as KImage, Line, Text as KText, Circle, Group, Transformer, Rect } from "react-konva";
 import useImage from "use-image";
-import type Konva from "konva";
+import Konva from "konva";
 import { Trash2, Type as TypeIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -106,12 +106,7 @@ export const KonvaImageEditor = forwardRef<KonvaImageEditorHandle, Props>(functi
     const node = stageRef.current?.findOne(".scan-image") as Konva.Image | undefined;
     if (!node || !image) return;
     node.cache();
-    node.filters([
-      // @ts-expect-error - dynamic Konva filters
-      window.Konva?.Filters?.Brighten ?? require("konva").Filters.Brighten,
-      // @ts-expect-error
-      window.Konva?.Filters?.Contrast ?? require("konva").Filters.Contrast,
-    ]);
+    node.filters([Konva.Filters.Brighten, Konva.Filters.Contrast]);
     node.brightness((brightness - 100) / 100);
     node.contrast(contrast - 100);
     node.getLayer()?.batchDraw();
