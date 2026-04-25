@@ -13,6 +13,7 @@ import { ConfidenceGauge } from "@/components/ConfidenceGauge";
 import { StatusBadge } from "@/components/StatusBadge";
 import { DiagnosticsToolbar } from "@/components/diagnostics/DiagnosticsToolbar";
 import { MriPipelinePanel } from "@/components/diagnostics/MriPipelinePanel";
+import { KonvaImageEditor, type KonvaImageEditorHandle, type EditorTool } from "@/components/diagnostics/KonvaImageEditor";
 import { cn } from "@/lib/utils";
 
 // --- Constants ---
