@@ -660,6 +660,8 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   };
 
   const handleImageMouseDown = (e: React.MouseEvent) => {
+    // Konva editor handles everything when scan is loaded
+    if (diagnosticStage === "complete") return;
     if (activeTool === "pan") {
       setIsPanning(true);
       setPanStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
@@ -671,6 +673,7 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   };
 
   const handleImageMouseMove = (e: React.MouseEvent) => {
+    if (diagnosticStage === "complete") return;
     if (activeTool === "pan" && isPanning) {
       setPanOffset({ x: e.clientX - panStart.x, y: e.clientY - panStart.y });
     } else if (activeTool === "draw" && isDrawing) {
@@ -707,6 +710,7 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   };
 
   const handleImageMouseUp = () => {
+    if (diagnosticStage === "complete") return;
     if (activeTool === "pan") setIsPanning(false);
     if (activeTool === "draw" && isDrawing) {
       setIsDrawing(false);
@@ -782,7 +786,7 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   };
 
   const handleImageClick = (e: React.MouseEvent) => {
-    if (diagnosticStage !== "complete") return;
+    if (diagnosticStage === "complete") return; // Konva editor owns interactions
     const pos = getRelativePos(e);
     if (activeTool === "zoom") {
       setZoom(prev => Math.min(200, prev + 25));
