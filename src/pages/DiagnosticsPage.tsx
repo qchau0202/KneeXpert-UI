@@ -533,6 +533,8 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
   const [textColor, setTextColor] = useState("#ffffff");
   const [textFontSize, setTextFontSize] = useState(14);
+  const [measureColor, setMeasureColor] = useState("#6366f1");
+  const [annotateColor, setAnnotateColor] = useState("#eab308");
   const [draggingTextId, setDraggingTextId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [rotatingTextId, setRotatingTextId] = useState<string | null>(null);
