@@ -31,7 +31,7 @@ export function DiagnosticsToolbar({
         {tools.map(tool => (
           <button
             key={tool.id}
-            onClick={() => setActiveTool(tool.id)}
+            onClick={() => setActiveTool(activeTool === tool.id ? "select" : tool.id)}
             className={cn(
               "w-9 h-9 rounded-lg flex items-center justify-center transition-all relative group",
               activeTool === tool.id
@@ -77,7 +77,7 @@ export function DiagnosticsToolbar({
         {tools.map(tool => (
           <button
             key={tool.id}
-            onClick={() => setActiveTool(tool.id)}
+            onClick={() => setActiveTool(activeTool === tool.id ? "select" : tool.id)}
             className={cn(
               "flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-all",
               activeTool === tool.id

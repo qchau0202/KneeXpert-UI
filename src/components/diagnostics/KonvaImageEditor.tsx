@@ -49,6 +49,8 @@ interface Props {
   drawSize: number;
   textColor: string;
   textFontSize: number;
+  measureColor?: string;
+  annotateColor?: string;
   onToolChange?: (t: EditorTool) => void;
 }
 
@@ -61,7 +63,7 @@ interface Props {
  * - Delete key (or trash icon in floating toolbar) removes the selected text.
  */
 export const KonvaImageEditor = forwardRef<KonvaImageEditorHandle, Props>(function KonvaImageEditor(
-  { imageUrl, tool, brightness, contrast, zoom, drawColor, drawSize, textColor, textFontSize, onToolChange },
+  { imageUrl, tool, brightness, contrast, zoom, drawColor, drawSize, textColor, textFontSize, measureColor = "#6366f1", annotateColor = "#eab308", onToolChange },
   ref,
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -212,7 +214,11 @@ export const KonvaImageEditor = forwardRef<KonvaImageEditorHandle, Props>(functi
   };
 
   const handleStageMouseUp = () => {
-    if (isDrawing) setIsDrawing(false);
+    if (isDrawing) {
+      setIsDrawing(false);
+      // Auto-close pen: switch back to select to dismiss the floating color panel
+      onToolChange?.("select");
+    }
   };
 
   // Begin editing a text node — render an HTML textarea overlay positioned over the text
@@ -381,21 +387,21 @@ export const KonvaImageEditor = forwardRef<KonvaImageEditorHandle, Props>(functi
               const dist = Math.round(Math.hypot(m.x2 - m.x1, m.y2 - m.y1) * 0.4);
               return (
                 <Group key={m.id} listening={tool === "select"}>
-                  <Line points={[m.x1, m.y1, m.x2, m.y2]} stroke="#6366f1" strokeWidth={2} dash={[6, 4]} />
-                  <Circle x={m.x1} y={m.y1} radius={5} fill="#6366f1"
+                  <Line points={[m.x1, m.y1, m.x2, m.y2]} stroke={measureColor} strokeWidth={2} dash={[6, 4]} />
+                  <Circle x={m.x1} y={m.y1} radius={5} fill={measureColor}
                     draggable={tool === "select"}
                     onDragMove={e => setMeasures(prev => prev.map(mm => mm.id === m.id ? { ...mm, x1: e.target.x(), y1: e.target.y() } : mm))}
                   />
-                  <Circle x={m.x2} y={m.y2} radius={5} fill="#6366f1"
+                  <Circle x={m.x2} y={m.y2} radius={5} fill={measureColor}
                     draggable={tool === "select"}
                     onDragMove={e => setMeasures(prev => prev.map(mm => mm.id === m.id ? { ...mm, x2: e.target.x(), y2: e.target.y() } : mm))}
                   />
-                  <KText x={(m.x1 + m.x2) / 2 - 20} y={(m.y1 + m.y2) / 2 - 18} text={`${dist}mm`} fontSize={12} fill="#6366f1" fontStyle="bold" />
+                  <KText x={(m.x1 + m.x2) / 2 - 20} y={(m.y1 + m.y2) / 2 - 18} text={`${dist}mm`} fontSize={12} fill={measureColor} fontStyle="bold" />
                 </Group>
               );
             })}
             {measureStart && (
-              <Circle x={measureStart.x} y={measureStart.y} radius={4} fill="#6366f1" opacity={0.7} />
+              <Circle x={measureStart.x} y={measureStart.y} radius={4} fill={measureColor} opacity={0.7} />
             )}
 
             {/* Annotations */}
@@ -406,7 +412,7 @@ export const KonvaImageEditor = forwardRef<KonvaImageEditorHandle, Props>(functi
                 draggable={tool === "select"}
                 onDragMove={e => setAnnotations(prev => prev.map(aa => aa.id === a.id ? { ...aa, x: e.target.x(), y: e.target.y() } : aa))}
               >
-                <Circle radius={11} fill="#eab308" stroke="#fff" strokeWidth={2} />
+                <Circle radius={11} fill={annotateColor} stroke="#fff" strokeWidth={2} />
                 <KText text={a.label} fontSize={10} fontStyle="bold" fill="#000" align="center" verticalAlign="middle" width={22} height={22} offsetX={11} offsetY={11} />
               </Group>
             ))}

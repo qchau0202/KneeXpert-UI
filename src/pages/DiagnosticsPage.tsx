@@ -533,6 +533,8 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
   const [textColor, setTextColor] = useState("#ffffff");
   const [textFontSize, setTextFontSize] = useState(14);
+  const [measureColor, setMeasureColor] = useState("#6366f1");
+  const [annotateColor, setAnnotateColor] = useState("#eab308");
   const [draggingTextId, setDraggingTextId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [rotatingTextId, setRotatingTextId] = useState<string | null>(null);
@@ -985,6 +987,8 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                       drawSize={drawSize}
                       textColor={textColor}
                       textFontSize={textFontSize}
+                      measureColor={measureColor}
+                      annotateColor={annotateColor}
                       onToolChange={(t) => setActiveTool(t)}
                     />
                     {/* Draw options panel */}
@@ -1028,6 +1032,42 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                           onChange={e => setTextFontSize(parseInt(e.target.value))}
                           className="w-full accent-primary h-1 cursor-pointer" />
                         <p className="text-[9px] text-muted-foreground italic">Click on the scan to place a text box</p>
+                      </div>
+                    )}
+                    {/* Ruler (measure) options panel */}
+                    {activeTool === "measure" && (
+                      <div className="absolute top-3 left-3 z-30 bg-background/95 backdrop-blur-sm border rounded-xl p-2.5 shadow-lg space-y-2 w-[170px]">
+                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Ruler Color</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {penColors.map(c => (
+                            <button
+                              key={c.id}
+                              onClick={() => setMeasureColor(c.value)}
+                              className={cn("w-6 h-6 rounded-full border-2 transition-all", measureColor === c.value ? "border-foreground scale-110 shadow-sm" : "border-transparent hover:scale-105")}
+                              style={{ backgroundColor: c.value }}
+                              title={c.label}
+                            />
+                          ))}
+                        </div>
+                        <p className="text-[9px] text-muted-foreground italic">Click two points on the scan to measure</p>
+                      </div>
+                    )}
+                    {/* Annotate (marker) options panel */}
+                    {activeTool === "annotate" && (
+                      <div className="absolute top-3 left-3 z-30 bg-background/95 backdrop-blur-sm border rounded-xl p-2.5 shadow-lg space-y-2 w-[170px]">
+                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Marker Color</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {penColors.map(c => (
+                            <button
+                              key={c.id}
+                              onClick={() => setAnnotateColor(c.value)}
+                              className={cn("w-6 h-6 rounded-full border-2 transition-all", annotateColor === c.value ? "border-foreground scale-110 shadow-sm" : "border-transparent hover:scale-105")}
+                              style={{ backgroundColor: c.value }}
+                              title={c.label}
+                            />
+                          ))}
+                        </div>
+                        <p className="text-[9px] text-muted-foreground italic">Click on the scan to place a marker</p>
                       </div>
                     )}
                     <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between z-10 pointer-events-none">
