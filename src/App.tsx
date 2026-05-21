@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Outlet } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -34,23 +34,27 @@ const App = () => (
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/admin/login" element={<AdminLoginPage />} />
 
-            {/* Admin routes - separate layout */}
-            <Route path="/admin" element={<AdminLayout><AdminOverviewPage /></AdminLayout>} />
-            <Route path="/admin/users" element={<AdminLayout><AdminUsersPage /></AdminLayout>} />
-            <Route path="/admin/ai-training" element={<AdminLayout><AdminAITrainingPage /></AdminLayout>} />
-            <Route path="/admin/datasets" element={<AdminLayout><AdminDatasetsPage /></AdminLayout>} />
-            <Route path="/admin/models" element={<AdminLayout><AdminModelsPage /></AdminLayout>} />
-            <Route path="/admin/mri-pipeline" element={<AdminLayout><AdminMRIPipelinePage /></AdminLayout>} />
-            <Route path="/admin/system" element={<AdminLayout><AdminSystemPage /></AdminLayout>} />
+            {/* Admin routes - persistent layout */}
+            <Route element={<AdminLayout><Outlet /></AdminLayout>}>
+              <Route path="/admin" element={<AdminOverviewPage />} />
+              <Route path="/admin/users" element={<AdminUsersPage />} />
+              <Route path="/admin/ai-training" element={<AdminAITrainingPage />} />
+              <Route path="/admin/datasets" element={<AdminDatasetsPage />} />
+              <Route path="/admin/models" element={<AdminModelsPage />} />
+              <Route path="/admin/mri-pipeline" element={<AdminMRIPipelinePage />} />
+              <Route path="/admin/system" element={<AdminSystemPage />} />
+            </Route>
 
-            {/* Doctor routes - main layout */}
-            <Route path="/" element={<AppLayout><DashboardPage /></AppLayout>} />
-            <Route path="/patients" element={<AppLayout><PatientsPage /></AppLayout>} />
-            <Route path="/diagnostics" element={<AppLayout><DiagnosticsPage /></AppLayout>} />
-            <Route path="/reports" element={<AppLayout><ReportsHubPage /></AppLayout>} />
-            <Route path="/reports/:patientId" element={<AppLayout><ReportDetailPage /></AppLayout>} />
-            <Route path="/settings" element={<AppLayout><SettingsPage /></AppLayout>} />
-            <Route path="/profile" element={<AppLayout><ProfilePage /></AppLayout>} />
+            {/* Doctor routes - persistent layout */}
+            <Route element={<AppLayout><Outlet /></AppLayout>}>
+              <Route path="/" element={<DashboardPage />} />
+              <Route path="/patients" element={<PatientsPage />} />
+              <Route path="/diagnostics" element={<DiagnosticsPage />} />
+              <Route path="/reports" element={<ReportsHubPage />} />
+              <Route path="/reports/:patientId" element={<ReportDetailPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
+            </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
