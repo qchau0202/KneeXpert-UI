@@ -65,15 +65,12 @@ const modelPerformance = {
   ],
 } as const;
 
-// Modality-specific input configuration options
-const xrayProjections = ["AP (Anteroposterior)", "Lateral", "Skyline / Sunrise", "Rosenberg"];
-const xraySides = ["Left", "Right", "Bilateral"];
-const mriSequences = ["T1-weighted", "T2-weighted", "PD (Proton Density)", "STIR", "T2 Fat-Sat"];
-const mriPlanes = ["Sagittal", "Coronal", "Axial"];
-const mriFieldStrengths = ["1.5 T", "3.0 T"];
-
-interface XrayConfig { projection: string; side: string; weightBearing: boolean }
-interface MriConfig { sequence: string; plane: string; fieldStrength: string; sliceThickness: number; runArtifactRemoval: boolean }
+// MRI input data formats
+const mriInputFormats = [
+  { id: "dicom", label: "DICOM", description: ".dcm series" },
+  { id: "nifti", label: "NIfTI", description: ".nii / .nii.gz" },
+] as const;
+type MriInputFormat = typeof mriInputFormats[number]["id"];
 
 // ============================================================
 // Phase 1 — Patient Selector (clean card-based layout)
