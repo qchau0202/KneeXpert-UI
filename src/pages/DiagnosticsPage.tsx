@@ -24,9 +24,7 @@ const xrayModels = [
   { id: "resnet", name: "ResNet50", description: "Baseline comparison", accuracy: "89.5%" },
 ];
 const mriModels = [
-  { id: "swin-densenet", name: "Swin-UNet + DenseNet201", description: "Artifact removal + classification", accuracy: "93.5%" },
-  { id: "swin-vit", name: "Swin-UNet + ViT-B/16", description: "Artifact removal + global analysis", accuracy: "91.7%" },
-  { id: "swin-resnet", name: "Swin-UNet + ResNet50", description: "Artifact removal + baseline", accuracy: "88.2%" },
+  { id: "deit-s", name: "DEiT-S", description: "Data-efficient Image Transformer (Small) — Swin-UNet cleaned input", accuracy: "92.4%" },
 ];
 const xrayViews = ["AP", "Lateral"];
 const mriViews = ["Sagittal", "Coronal", "Axial"];
@@ -44,7 +42,7 @@ const mriStages: { id: DiagnosticStage; label: string; duration: number }[] = [
   { id: "uploading", label: "Uploading MRI DICOM file...", duration: 1500 },
   { id: "preprocessing", label: "Pre-processing: Normalization + Quality Check", duration: 1500 },
   { id: "artifact-removal", label: "Stage 2: Swin-UNet Artifact Removal (KMAR-50K)", duration: 2500 },
-  { id: "inference", label: "Stage 3: Downstream Classification on Cleaned Data", duration: 2200 },
+  { id: "inference", label: "Stage 3: DEiT-S Classification on Cleaned Data", duration: 2200 },
   { id: "gradcam", label: "Generating Grad-CAM heatmap...", duration: 1200 },
   { id: "complete", label: "Analysis complete", duration: 0 },
 ];
@@ -53,6 +51,29 @@ const mockResults = {
   xray: { grade: 3, confidence: 94.2, findings: ["Joint space narrowing (medial compartment)", "Osteophyte formation (tibial plateau)", "Subchondral sclerosis detected"] },
   mri: { grade: 2, confidence: 87.6, findings: ["Cartilage thinning (medial femoral condyle)", "Mild meniscal degeneration", "No significant effusion"] },
 };
+
+// Per-model performance (mocked) shown after analysis
+const modelPerformance = {
+  xray: [
+    { id: "resnet", name: "ResNet50", grade: 3, confidence: 91.4, latency: "182 ms", accuracy: "89.5%" },
+    { id: "densenet", name: "DenseNet201", grade: 3, confidence: 94.7, latency: "214 ms", accuracy: "94.2%" },
+    { id: "vgg", name: "VGG-19", grade: 3, confidence: 90.1, latency: "245 ms", accuracy: "88.1%" },
+    { id: "ensemble", name: "Ensemble (Majority Vote)", grade: 3, confidence: 94.2, latency: "641 ms", accuracy: "95.1%" },
+  ],
+  mri: [
+    { id: "deit-s", name: "DEiT-S (on Swin-UNet output)", grade: 2, confidence: 87.6, latency: "298 ms", accuracy: "92.4%" },
+  ],
+} as const;
+
+// Modality-specific input configuration options
+const xrayProjections = ["AP (Anteroposterior)", "Lateral", "Skyline / Sunrise", "Rosenberg"];
+const xraySides = ["Left", "Right", "Bilateral"];
+const mriSequences = ["T1-weighted", "T2-weighted", "PD (Proton Density)", "STIR", "T2 Fat-Sat"];
+const mriPlanes = ["Sagittal", "Coronal", "Axial"];
+const mriFieldStrengths = ["1.5 T", "3.0 T"];
+
+interface XrayConfig { projection: string; side: string; weightBearing: boolean }
+interface MriConfig { sequence: string; plane: string; fieldStrength: string; sliceThickness: number; runArtifactRemoval: boolean }
 
 // ============================================================
 // Phase 1 — Patient Selector (clean card-based layout)
@@ -572,6 +593,21 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   const [isDragging, setIsDragging] = useState(false);
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
 
+  // Phase gating: doctor must configure scan inputs before they can upload.
+  const [setupComplete, setSetupComplete] = useState(false);
+  const [xrayConfig, setXrayConfig] = useState<XrayConfig>({
+    projection: xrayProjections[0],
+    side: xraySides[0],
+    weightBearing: true,
+  });
+  const [mriConfig, setMriConfig] = useState<MriConfig>({
+    sequence: mriSequences[1],
+    plane: mriPlanes[0],
+    fieldStrength: mriFieldStrengths[1],
+    sliceThickness: 3,
+    runArtifactRemoval: true,
+  });
+
   const toolCursor = activeTool === "pan" ? (isPanning ? "grabbing" : "grab") 
     : activeTool === "measure" ? "crosshair" 
     : activeTool === "annotate" ? "crosshair" 
@@ -591,6 +627,8 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
     setDiagnosticStage("idle");
     setStagesCompleted([]);
     setCurrentStageIndex(0);
+    setSetupComplete(false);
+    setActiveTool("select");
   };
 
   const startDiagnosticFlow = useCallback((fileName: string) => {
@@ -639,7 +677,7 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   const handleDrop = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(false); const file = e.dataTransfer.files?.[0]; if (file) processFile(file); };
   const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(true); };
   const handleDragLeave = () => setIsDragging(false);
-  const resetDiagnostic = () => { setDiagnosticStage("idle"); setStagesCompleted([]); setCurrentStageIndex(0); setUploadProgress(0); setUploadedFileName(""); setMeasurements([]); setAnnotations([]); setDrawingPaths([]); setCurrentDrawPath([]); setTextBoxes([]); setEditingTextId(null); setSelectedTextId(null); setTextPlaced(false); setPanOffset({ x: 0, y: 0 }); setZoom(100); if (uploadedImageUrl) { URL.revokeObjectURL(uploadedImageUrl); setUploadedImageUrl(null); } };
+  const resetDiagnostic = () => { setDiagnosticStage("idle"); setStagesCompleted([]); setCurrentStageIndex(0); setUploadProgress(0); setUploadedFileName(""); setMeasurements([]); setAnnotations([]); setDrawingPaths([]); setCurrentDrawPath([]); setTextBoxes([]); setEditingTextId(null); setSelectedTextId(null); setTextPlaced(false); setPanOffset({ x: 0, y: 0 }); setZoom(100); setSetupComplete(false); setActiveTool("select"); if (uploadedImageUrl) { URL.revokeObjectURL(uploadedImageUrl); setUploadedImageUrl(null); } };
 
   useEffect(() => { if (activeTool !== "text") setTextPlaced(false); }, [activeTool]);
 
@@ -917,8 +955,10 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
       <div className="flex-1 overflow-auto">
         {/* Image workspace */}
         <div className="flex flex-col lg:flex-row">
-          {/* Tools — horizontal on mobile via DiagnosticsToolbar, vertical on desktop */}
-          <DiagnosticsToolbar activeTool={activeTool} setActiveTool={setActiveTool} zoom={zoom} setZoom={setZoom} setBrightness={setBrightness} setContrast={setContrast} />
+          {/* Tools — only available after analysis completes */}
+          {diagnosticStage === "complete" && (
+            <DiagnosticsToolbar activeTool={activeTool} setActiveTool={setActiveTool} zoom={zoom} setZoom={setZoom} setBrightness={setBrightness} setContrast={setContrast} />
+          )}
 
           {/* Original scan panel */}
           <div className="flex-1 border-r border-b flex flex-col">
@@ -956,7 +996,92 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
               <input ref={fileInputRef} type="file" accept=".dcm,.dicom,.jpg,.jpeg,.png,.nii,.nii.gz" className="hidden" onChange={handleFileChange} />
 
               <AnimatePresence mode="wait">
-                {diagnosticStage === "idle" ? (
+                {diagnosticStage === "idle" && !setupComplete ? (
+                  <motion.div key="setup" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                    className="w-full max-w-md p-5 rounded-xl bg-background border shadow-sm space-y-4"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <SlidersHorizontal className="w-4 h-4 text-primary" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">Configure {activeModality === "xray" ? "X-Ray" : "MRI"} Input</p>
+                        <p className="text-[11px] text-muted-foreground">Step 1 of 2 — set acquisition parameters before upload</p>
+                      </div>
+                    </div>
+
+                    {activeModality === "xray" ? (
+                      <div className="space-y-3">
+                        <div>
+                          <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Projection</label>
+                          <select value={xrayConfig.projection} onChange={e => setXrayConfig(c => ({ ...c, projection: e.target.value }))}
+                            className="mt-1 w-full px-3 py-2 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/20">
+                            {xrayProjections.map(p => <option key={p}>{p}</option>)}
+                          </select>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Side</label>
+                            <select value={xrayConfig.side} onChange={e => setXrayConfig(c => ({ ...c, side: e.target.value }))}
+                              className="mt-1 w-full px-3 py-2 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/20">
+                              {xraySides.map(s => <option key={s}>{s}</option>)}
+                            </select>
+                          </div>
+                          <label className="flex items-end gap-2 text-xs cursor-pointer pb-2">
+                            <input type="checkbox" checked={xrayConfig.weightBearing} onChange={e => setXrayConfig(c => ({ ...c, weightBearing: e.target.checked }))} className="accent-primary" />
+                            <span>Weight-bearing</span>
+                          </label>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Sequence</label>
+                            <select value={mriConfig.sequence} onChange={e => setMriConfig(c => ({ ...c, sequence: e.target.value }))}
+                              className="mt-1 w-full px-3 py-2 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/20">
+                              {mriSequences.map(s => <option key={s}>{s}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Plane</label>
+                            <select value={mriConfig.plane} onChange={e => { setMriConfig(c => ({ ...c, plane: e.target.value })); setSelectedView(e.target.value); }}
+                              className="mt-1 w-full px-3 py-2 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/20">
+                              {mriPlanes.map(p => <option key={p}>{p}</option>)}
+                            </select>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Field Strength</label>
+                            <select value={mriConfig.fieldStrength} onChange={e => setMriConfig(c => ({ ...c, fieldStrength: e.target.value }))}
+                              className="mt-1 w-full px-3 py-2 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/20">
+                              {mriFieldStrengths.map(f => <option key={f}>{f}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Slice · {mriConfig.sliceThickness}mm</label>
+                            <input type="range" min={1} max={6} step={0.5} value={mriConfig.sliceThickness}
+                              onChange={e => setMriConfig(c => ({ ...c, sliceThickness: parseFloat(e.target.value) }))}
+                              className="w-full accent-primary h-1 mt-3 cursor-pointer" />
+                          </div>
+                        </div>
+                        <label className="flex items-center gap-2 text-xs cursor-pointer">
+                          <input type="checkbox" checked={mriConfig.runArtifactRemoval} onChange={e => setMriConfig(c => ({ ...c, runArtifactRemoval: e.target.checked }))} className="accent-primary" />
+                          <span>Run Swin-UNet artifact removal before DEiT-S</span>
+                        </label>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between pt-2 border-t">
+                      <p className="text-[10px] text-muted-foreground">Model: <span className="font-medium text-foreground/80">{models.find(m => m.id === activeModel)?.name}</span></p>
+                      <button onClick={() => setSetupComplete(true)} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors">
+                        Continue<ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </motion.div>
+                ) : diagnosticStage === "idle" ? (
                   <motion.div key="upload" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                     className="w-64 h-64 sm:w-72 sm:h-72 rounded-xl bg-foreground/5 border-2 border-dashed border-border hover:border-primary/40 flex flex-col items-center justify-center gap-3 transition-all cursor-pointer"
                     style={{ transform: `scale(${zoom / 100})`, filter: `brightness(${brightness}%) contrast(${contrast}%)` }}
@@ -967,11 +1092,18 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                     </div>
                     <div className="text-center px-4">
                       <p className="text-sm font-medium">{selectedView} {activeModality === "xray" ? "X-Ray" : "MRI"}</p>
+                      <p className="text-[10px] text-muted-foreground">{activeModality === "xray"
+                        ? `${xrayConfig.projection.split(" ")[0]} · ${xrayConfig.side}${xrayConfig.weightBearing ? " · WB" : ""}`
+                        : `${mriConfig.sequence} · ${mriConfig.fieldStrength} · ${mriConfig.sliceThickness}mm`}
+                      </p>
                       <p className="text-xs text-muted-foreground mt-1">Drag & drop or click to upload</p>
                       <p className="text-[10px] text-muted-foreground mt-0.5">DICOM, JPEG, PNG{activeModality === "mri" ? ", NIfTI" : ""}</p>
                     </div>
                     <button className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors mt-1">
                       <Upload className="w-3 h-3 inline mr-1" />Upload
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); setSetupComplete(false); }} className="text-[10px] text-muted-foreground hover:text-foreground underline">
+                      ← Edit input settings
                     </button>
                   </motion.div>
                 ) : diagnosticStage === "complete" ? (
@@ -1248,6 +1380,51 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                     </div>
                   ))}
                 </div>
+              </div>
+
+              {/* Per-model performance breakdown */}
+              <div className="p-4 rounded-xl border bg-card">
+                <div className="flex items-center gap-2 mb-3">
+                  <Brain className="w-4 h-4 text-primary" />
+                  <p className="text-sm font-medium">Model Performance</p>
+                  <span className="text-[10px] text-muted-foreground ml-1">
+                    {activeModality === "xray" ? "Phase I — X-Ray ensemble" : "Phase II — MRI (DEiT-S)"}
+                  </span>
+                </div>
+                <div className="overflow-hidden rounded-lg border">
+                  <div className="grid grid-cols-12 gap-2 px-3 py-2 bg-muted/50 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                    <div className="col-span-5">Model</div>
+                    <div className="col-span-2 text-center">Grade</div>
+                    <div className="col-span-3">Confidence</div>
+                    <div className="col-span-1 text-right">Latency</div>
+                    <div className="col-span-1 text-right">Acc.</div>
+                  </div>
+                  {modelPerformance[activeModality].map((m, i) => {
+                    const isFinal = activeModality === "xray" ? m.id === "ensemble" : true;
+                    return (
+                      <div key={m.id} className={cn("grid grid-cols-12 gap-2 px-3 py-2 items-center text-xs border-t", isFinal && "bg-primary/5")}>
+                        <div className="col-span-5 flex items-center gap-2 min-w-0">
+                          <span className="font-medium truncate">{m.name}</span>
+                          {isFinal && <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">Final</span>}
+                        </div>
+                        <div className="col-span-2 flex justify-center"><GradeBadge grade={m.grade} /></div>
+                        <div className="col-span-3">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                              <div className="h-full bg-primary rounded-full" style={{ width: `${m.confidence}%` }} />
+                            </div>
+                            <span className="text-mono text-[10px] text-muted-foreground w-10 text-right">{m.confidence.toFixed(1)}%</span>
+                          </div>
+                        </div>
+                        <div className="col-span-1 text-right text-mono text-[10px] text-muted-foreground">{m.latency}</div>
+                        <div className="col-span-1 text-right text-mono text-[10px] text-muted-foreground">{m.accuracy}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {activeModality === "mri" && (
+                  <p className="text-[10px] text-muted-foreground mt-2">DEiT-S is the sole MRI classifier; input is first cleaned by the Swin-UNet artifact-removal stage.</p>
+                )}
               </div>
 
               {/* Actions */}
