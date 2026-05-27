@@ -980,115 +980,52 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
               <input ref={fileInputRef} type="file" accept=".dcm,.dicom,.jpg,.jpeg,.png,.nii,.nii.gz" className="hidden" onChange={handleFileChange} />
 
               <AnimatePresence mode="wait">
-                {diagnosticStage === "idle" && !setupComplete ? (
-                  <motion.div key="setup" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                    className="w-full max-w-md p-5 rounded-xl bg-background border shadow-sm space-y-4"
+                {diagnosticStage === "idle" ? (
+                  <motion.div key="upload" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    className="w-72 sm:w-80 rounded-xl bg-background border shadow-sm p-5 space-y-4"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <SlidersHorizontal className="w-4 h-4 text-primary" />
-                      </div>
+                    {activeModality === "mri" && (
                       <div>
-                        <p className="text-sm font-medium">Configure {activeModality === "xray" ? "X-Ray" : "MRI"} Input</p>
-                        <p className="text-[11px] text-muted-foreground">Step 1 of 2 — set acquisition parameters before upload</p>
-                      </div>
-                    </div>
-
-                    {activeModality === "xray" ? (
-                      <div className="space-y-3">
-                        <div>
-                          <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Projection</label>
-                          <select value={xrayConfig.projection} onChange={e => setXrayConfig(c => ({ ...c, projection: e.target.value }))}
-                            className="mt-1 w-full px-3 py-2 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/20">
-                            {xrayProjections.map(p => <option key={p}>{p}</option>)}
-                          </select>
+                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">Input data type</p>
+                        <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5">
+                          {mriInputFormats.map(f => (
+                            <button
+                              key={f.id}
+                              onClick={() => setMriInputFormat(f.id)}
+                              className={cn(
+                                "flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-all",
+                                mriInputFormat === f.id ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                              )}
+                            >
+                              {f.label}
+                              <span className="block text-[9px] text-muted-foreground font-normal">{f.description}</span>
+                            </button>
+                          ))}
                         </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Side</label>
-                            <select value={xrayConfig.side} onChange={e => setXrayConfig(c => ({ ...c, side: e.target.value }))}
-                              className="mt-1 w-full px-3 py-2 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/20">
-                              {xraySides.map(s => <option key={s}>{s}</option>)}
-                            </select>
-                          </div>
-                          <label className="flex items-end gap-2 text-xs cursor-pointer pb-2">
-                            <input type="checkbox" checked={xrayConfig.weightBearing} onChange={e => setXrayConfig(c => ({ ...c, weightBearing: e.target.checked }))} className="accent-primary" />
-                            <span>Weight-bearing</span>
-                          </label>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Sequence</label>
-                            <select value={mriConfig.sequence} onChange={e => setMriConfig(c => ({ ...c, sequence: e.target.value }))}
-                              className="mt-1 w-full px-3 py-2 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/20">
-                              {mriSequences.map(s => <option key={s}>{s}</option>)}
-                            </select>
-                          </div>
-                          <div>
-                            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Plane</label>
-                            <select value={mriConfig.plane} onChange={e => { setMriConfig(c => ({ ...c, plane: e.target.value })); setSelectedView(e.target.value); }}
-                              className="mt-1 w-full px-3 py-2 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/20">
-                              {mriPlanes.map(p => <option key={p}>{p}</option>)}
-                            </select>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Field Strength</label>
-                            <select value={mriConfig.fieldStrength} onChange={e => setMriConfig(c => ({ ...c, fieldStrength: e.target.value }))}
-                              className="mt-1 w-full px-3 py-2 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/20">
-                              {mriFieldStrengths.map(f => <option key={f}>{f}</option>)}
-                            </select>
-                          </div>
-                          <div>
-                            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Slice · {mriConfig.sliceThickness}mm</label>
-                            <input type="range" min={1} max={6} step={0.5} value={mriConfig.sliceThickness}
-                              onChange={e => setMriConfig(c => ({ ...c, sliceThickness: parseFloat(e.target.value) }))}
-                              className="w-full accent-primary h-1 mt-3 cursor-pointer" />
-                          </div>
-                        </div>
-                        <label className="flex items-center gap-2 text-xs cursor-pointer">
-                          <input type="checkbox" checked={mriConfig.runArtifactRemoval} onChange={e => setMriConfig(c => ({ ...c, runArtifactRemoval: e.target.checked }))} className="accent-primary" />
-                          <span>Run Swin-UNet artifact removal before DEiT-S</span>
-                        </label>
                       </div>
                     )}
-
-                    <div className="flex items-center justify-between pt-2 border-t">
-                      <p className="text-[10px] text-muted-foreground">Model: <span className="font-medium text-foreground/80">{models.find(m => m.id === activeModel)?.name}</span></p>
-                      <button onClick={() => setSetupComplete(true)} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors">
-                        Continue<ChevronRight className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </motion.div>
-                ) : diagnosticStage === "idle" ? (
-                  <motion.div key="upload" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                    className="w-64 h-64 sm:w-72 sm:h-72 rounded-xl bg-foreground/5 border-2 border-dashed border-border hover:border-primary/40 flex flex-col items-center justify-center gap-3 transition-all cursor-pointer"
-                    style={{ transform: `scale(${zoom / 100})`, filter: `brightness(${brightness}%) contrast(${contrast}%)` }}
-                    onClick={(e) => { e.stopPropagation(); handleFileSelect(); }}
-                  >
-                    <div className="w-14 h-14 rounded-xl bg-muted flex items-center justify-center">
-                      <Image className="w-7 h-7 text-muted-foreground" />
-                    </div>
-                    <div className="text-center px-4">
-                      <p className="text-sm font-medium">{selectedView} {activeModality === "xray" ? "X-Ray" : "MRI"}</p>
-                      <p className="text-[10px] text-muted-foreground">{activeModality === "xray"
-                        ? `${xrayConfig.projection.split(" ")[0]} · ${xrayConfig.side}${xrayConfig.weightBearing ? " · WB" : ""}`
-                        : `${mriConfig.sequence} · ${mriConfig.fieldStrength} · ${mriConfig.sliceThickness}mm`}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">Drag & drop or click to upload</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">DICOM, JPEG, PNG{activeModality === "mri" ? ", NIfTI" : ""}</p>
-                    </div>
-                    <button className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors mt-1">
-                      <Upload className="w-3 h-3 inline mr-1" />Upload
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleFileSelect(); }}
+                      className="w-full h-44 rounded-xl bg-foreground/5 border-2 border-dashed border-border hover:border-primary/40 hover:bg-primary/5 flex flex-col items-center justify-center gap-2 transition-all"
+                    >
+                      <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center">
+                        <Upload className="w-6 h-6 text-muted-foreground" />
+                      </div>
+                      <div className="text-center px-4">
+                        <p className="text-sm font-medium">Upload {activeModality === "xray" ? "X-Ray" : "MRI"} scan</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          {activeModality === "xray"
+                            ? "DICOM, JPEG or PNG"
+                            : mriInputFormat === "dicom" ? "DICOM (.dcm)" : "NIfTI (.nii / .nii.gz)"}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground/70 mt-0.5">Drag & drop or click</p>
+                      </div>
                     </button>
-                    <button onClick={(e) => { e.stopPropagation(); setSetupComplete(false); }} className="text-[10px] text-muted-foreground hover:text-foreground underline">
-                      ← Edit input settings
-                    </button>
+                    <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                      <span>View: <span className="font-medium text-foreground/80">{selectedView}</span></span>
+                      <span>Model: <span className="font-medium text-foreground/80">{models.find(m => m.id === activeModel)?.name}</span></span>
+                    </div>
                   </motion.div>
                 ) : diagnosticStage === "complete" ? (
                   <motion.div key="result-image" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0">
