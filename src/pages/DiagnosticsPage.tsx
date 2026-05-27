@@ -948,7 +948,6 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
           <div className="flex-1 border-r border-b flex flex-col">
             <div className="h-10 border-b flex items-center justify-between px-4 flex-shrink-0 bg-muted/20">
               <div className="flex items-center gap-2">
-                <span className="section-header text-[10px]">Original Scan</span>
                 <div className="flex items-center gap-0.5 bg-background rounded-md p-0.5 border">
                   {views.map(view => (
                     <button key={view} onClick={() => setSelectedView(view)} className={cn("px-2 py-0.5 rounded text-[10px] font-medium transition-all", selectedView === view ? "bg-primary text-primary-foreground" : "text-muted-foreground")}>{view}</button>
