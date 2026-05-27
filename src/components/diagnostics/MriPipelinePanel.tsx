@@ -9,19 +9,19 @@ interface MriPipelinePanelProps {
 const pipelineStages = [
   {
     id: "pretrain",
-    label: "Stage 1: Pre-training",
+    label: "Pre-training",
     description: "Swin-UNet trained on KMAR-50K dataset for deep feature reconstruction",
     detail: "Learning artifact patterns from 50,000 corrupted MRI samples",
   },
   {
     id: "enhance",
-    label: "Stage 2: Enhancement",
+    label: "Artifact Removal",
     description: "Raw MRI passed through pre-trained model for artifact removal",
     detail: "Removing motion blur & stripe artifacts while preserving pathology",
   },
   {
     id: "diagnose",
-    label: "Stage 3: Downstream Diagnosis",
+    label: "Diagnosis",
     description: "Cleaned data used for high-precision classification",
     detail: "Enhanced detection of subtle soft-tissue lesions",
   },
