@@ -34,15 +34,15 @@ type DiagnosticStage = "idle" | "uploading" | "preprocessing" | "artifact-remova
 const xrayStages: { id: DiagnosticStage; label: string; duration: number }[] = [
   { id: "uploading", label: "Uploading DICOM file...", duration: 1200 },
   { id: "preprocessing", label: "Pre-processing: CLAHE + Denoise + Normalization", duration: 1800 },
-  { id: "inference", label: "Running Ensemble Inference (ResNet50 + DenseNet201 + VGG-19)", duration: 2500 },
+  { id: "inference", label: "Running ensemble inference (ResNet50 + DenseNet201 + VGG-19)", duration: 2500 },
   { id: "gradcam", label: "Generating Grad-CAM heatmap...", duration: 1200 },
   { id: "complete", label: "Analysis complete", duration: 0 },
 ];
 const mriStages: { id: DiagnosticStage; label: string; duration: number }[] = [
-  { id: "uploading", label: "Uploading MRI DICOM file...", duration: 1500 },
+  { id: "uploading", label: "Uploading MRI scan...", duration: 1500 },
   { id: "preprocessing", label: "Pre-processing: Normalization + Quality Check", duration: 1500 },
-  { id: "artifact-removal", label: "Stage 2: Swin-UNet Artifact Removal (KMAR-50K)", duration: 2500 },
-  { id: "inference", label: "Stage 3: DEiT-S Classification on Cleaned Data", duration: 2200 },
+  { id: "artifact-removal", label: "Swin-UNet artifact removal", duration: 2500 },
+  { id: "inference", label: "DEiT-S classification", duration: 2200 },
   { id: "gradcam", label: "Generating Grad-CAM heatmap...", duration: 1200 },
   { id: "complete", label: "Analysis complete", duration: 0 },
 ];
