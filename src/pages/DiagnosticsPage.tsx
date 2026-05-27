@@ -1382,6 +1382,51 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                 </div>
               </div>
 
+              {/* Per-model performance breakdown */}
+              <div className="p-4 rounded-xl border bg-card">
+                <div className="flex items-center gap-2 mb-3">
+                  <Brain className="w-4 h-4 text-primary" />
+                  <p className="text-sm font-medium">Model Performance</p>
+                  <span className="text-[10px] text-muted-foreground ml-1">
+                    {activeModality === "xray" ? "Phase I — X-Ray ensemble" : "Phase II — MRI (DEiT-S)"}
+                  </span>
+                </div>
+                <div className="overflow-hidden rounded-lg border">
+                  <div className="grid grid-cols-12 gap-2 px-3 py-2 bg-muted/50 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                    <div className="col-span-5">Model</div>
+                    <div className="col-span-2 text-center">Grade</div>
+                    <div className="col-span-3">Confidence</div>
+                    <div className="col-span-1 text-right">Latency</div>
+                    <div className="col-span-1 text-right">Acc.</div>
+                  </div>
+                  {modelPerformance[activeModality].map((m, i) => {
+                    const isFinal = activeModality === "xray" ? m.id === "ensemble" : true;
+                    return (
+                      <div key={m.id} className={cn("grid grid-cols-12 gap-2 px-3 py-2 items-center text-xs border-t", isFinal && "bg-primary/5")}>
+                        <div className="col-span-5 flex items-center gap-2 min-w-0">
+                          <span className="font-medium truncate">{m.name}</span>
+                          {isFinal && <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">Final</span>}
+                        </div>
+                        <div className="col-span-2 flex justify-center"><GradeBadge grade={m.grade} /></div>
+                        <div className="col-span-3">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                              <div className="h-full bg-primary rounded-full" style={{ width: `${m.confidence}%` }} />
+                            </div>
+                            <span className="text-mono text-[10px] text-muted-foreground w-10 text-right">{m.confidence.toFixed(1)}%</span>
+                          </div>
+                        </div>
+                        <div className="col-span-1 text-right text-mono text-[10px] text-muted-foreground">{m.latency}</div>
+                        <div className="col-span-1 text-right text-mono text-[10px] text-muted-foreground">{m.accuracy}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {activeModality === "mri" && (
+                  <p className="text-[10px] text-muted-foreground mt-2">DEiT-S is the sole MRI classifier; input is first cleaned by the Swin-UNet artifact-removal stage.</p>
+                )}
+              </div>
+
               {/* Actions */}
               <div className="flex items-center justify-between flex-wrap gap-3">
                 <p className="text-sm">
