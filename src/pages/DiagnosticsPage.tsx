@@ -1307,7 +1307,7 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                   <Brain className="w-4 h-4 text-primary" />
                   <p className="text-sm font-medium">Model Performance</p>
                   <span className="text-[10px] text-muted-foreground ml-1">
-                    {activeModality === "xray" ? "Phase I — X-Ray ensemble" : "Phase II — MRI (DEiT-S)"}
+                    {activeModality === "xray" ? "X-Ray ensemble" : "MRI · DEiT-S"}
                   </span>
                 </div>
                 <div className="overflow-hidden rounded-lg border">
