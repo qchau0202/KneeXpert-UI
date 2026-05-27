@@ -34,15 +34,15 @@ type DiagnosticStage = "idle" | "uploading" | "preprocessing" | "artifact-remova
 const xrayStages: { id: DiagnosticStage; label: string; duration: number }[] = [
   { id: "uploading", label: "Uploading DICOM file...", duration: 1200 },
   { id: "preprocessing", label: "Pre-processing: CLAHE + Denoise + Normalization", duration: 1800 },
-  { id: "inference", label: "Running Ensemble Inference (ResNet50 + DenseNet201 + VGG-19)", duration: 2500 },
+  { id: "inference", label: "Running ensemble inference (ResNet50 + DenseNet201 + VGG-19)", duration: 2500 },
   { id: "gradcam", label: "Generating Grad-CAM heatmap...", duration: 1200 },
   { id: "complete", label: "Analysis complete", duration: 0 },
 ];
 const mriStages: { id: DiagnosticStage; label: string; duration: number }[] = [
-  { id: "uploading", label: "Uploading MRI DICOM file...", duration: 1500 },
+  { id: "uploading", label: "Uploading MRI scan...", duration: 1500 },
   { id: "preprocessing", label: "Pre-processing: Normalization + Quality Check", duration: 1500 },
-  { id: "artifact-removal", label: "Stage 2: Swin-UNet Artifact Removal (KMAR-50K)", duration: 2500 },
-  { id: "inference", label: "Stage 3: DEiT-S Classification on Cleaned Data", duration: 2200 },
+  { id: "artifact-removal", label: "Swin-UNet artifact removal", duration: 2500 },
+  { id: "inference", label: "DEiT-S classification", duration: 2200 },
   { id: "gradcam", label: "Generating Grad-CAM heatmap...", duration: 1200 },
   { id: "complete", label: "Analysis complete", duration: 0 },
 ];
@@ -65,15 +65,12 @@ const modelPerformance = {
   ],
 } as const;
 
-// Modality-specific input configuration options
-const xrayProjections = ["AP (Anteroposterior)", "Lateral", "Skyline / Sunrise", "Rosenberg"];
-const xraySides = ["Left", "Right", "Bilateral"];
-const mriSequences = ["T1-weighted", "T2-weighted", "PD (Proton Density)", "STIR", "T2 Fat-Sat"];
-const mriPlanes = ["Sagittal", "Coronal", "Axial"];
-const mriFieldStrengths = ["1.5 T", "3.0 T"];
-
-interface XrayConfig { projection: string; side: string; weightBearing: boolean }
-interface MriConfig { sequence: string; plane: string; fieldStrength: string; sliceThickness: number; runArtifactRemoval: boolean }
+// MRI input data formats
+const mriInputFormats = [
+  { id: "dicom", label: "DICOM", description: ".dcm series" },
+  { id: "nifti", label: "NIfTI", description: ".nii / .nii.gz" },
+] as const;
+type MriInputFormat = typeof mriInputFormats[number]["id"];
 
 // ============================================================
 // Phase 1 — Patient Selector (clean card-based layout)
@@ -583,7 +580,6 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   const [overrideGrade, setOverrideGrade] = useState<number | null>(null);
   const [showOverridePanel, setShowOverridePanel] = useState(false);
   const [overrideNotes, setOverrideNotes] = useState("");
-  const [gradcamOpacity, setGradcamOpacity] = useState(70);
   const [selectedView, setSelectedView] = useState(views[0]);
   const [diagnosticStage, setDiagnosticStage] = useState<DiagnosticStage>("idle");
   const [uploadedFileName, setUploadedFileName] = useState("");
@@ -593,20 +589,8 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   const [isDragging, setIsDragging] = useState(false);
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
 
-  // Phase gating: doctor must configure scan inputs before they can upload.
-  const [setupComplete, setSetupComplete] = useState(false);
-  const [xrayConfig, setXrayConfig] = useState<XrayConfig>({
-    projection: xrayProjections[0],
-    side: xraySides[0],
-    weightBearing: true,
-  });
-  const [mriConfig, setMriConfig] = useState<MriConfig>({
-    sequence: mriSequences[1],
-    plane: mriPlanes[0],
-    fieldStrength: mriFieldStrengths[1],
-    sliceThickness: 3,
-    runArtifactRemoval: true,
-  });
+  // MRI only — choose the input data format (DICOM or NIfTI).
+  const [mriInputFormat, setMriInputFormat] = useState<MriInputFormat>("dicom");
 
   const toolCursor = activeTool === "pan" ? (isPanning ? "grabbing" : "grab") 
     : activeTool === "measure" ? "crosshair" 
@@ -627,7 +611,6 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
     setDiagnosticStage("idle");
     setStagesCompleted([]);
     setCurrentStageIndex(0);
-    setSetupComplete(false);
     setActiveTool("select");
   };
 
@@ -677,7 +660,7 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   const handleDrop = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(false); const file = e.dataTransfer.files?.[0]; if (file) processFile(file); };
   const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(true); };
   const handleDragLeave = () => setIsDragging(false);
-  const resetDiagnostic = () => { setDiagnosticStage("idle"); setStagesCompleted([]); setCurrentStageIndex(0); setUploadProgress(0); setUploadedFileName(""); setMeasurements([]); setAnnotations([]); setDrawingPaths([]); setCurrentDrawPath([]); setTextBoxes([]); setEditingTextId(null); setSelectedTextId(null); setTextPlaced(false); setPanOffset({ x: 0, y: 0 }); setZoom(100); setSetupComplete(false); setActiveTool("select"); if (uploadedImageUrl) { URL.revokeObjectURL(uploadedImageUrl); setUploadedImageUrl(null); } };
+  const resetDiagnostic = () => { setDiagnosticStage("idle"); setStagesCompleted([]); setCurrentStageIndex(0); setUploadProgress(0); setUploadedFileName(""); setMeasurements([]); setAnnotations([]); setDrawingPaths([]); setCurrentDrawPath([]); setTextBoxes([]); setEditingTextId(null); setSelectedTextId(null); setTextPlaced(false); setPanOffset({ x: 0, y: 0 }); setZoom(100); setActiveTool("select"); if (uploadedImageUrl) { URL.revokeObjectURL(uploadedImageUrl); setUploadedImageUrl(null); } };
 
   useEffect(() => { if (activeTool !== "text") setTextPlaced(false); }, [activeTool]);
 
@@ -964,7 +947,6 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
           <div className="flex-1 border-r border-b flex flex-col">
             <div className="h-10 border-b flex items-center justify-between px-4 flex-shrink-0 bg-muted/20">
               <div className="flex items-center gap-2">
-                <span className="section-header text-[10px]">Original Scan</span>
                 <div className="flex items-center gap-0.5 bg-background rounded-md p-0.5 border">
                   {views.map(view => (
                     <button key={view} onClick={() => setSelectedView(view)} className={cn("px-2 py-0.5 rounded text-[10px] font-medium transition-all", selectedView === view ? "bg-primary text-primary-foreground" : "text-muted-foreground")}>{view}</button>
@@ -996,115 +978,52 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
               <input ref={fileInputRef} type="file" accept=".dcm,.dicom,.jpg,.jpeg,.png,.nii,.nii.gz" className="hidden" onChange={handleFileChange} />
 
               <AnimatePresence mode="wait">
-                {diagnosticStage === "idle" && !setupComplete ? (
-                  <motion.div key="setup" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                    className="w-full max-w-md p-5 rounded-xl bg-background border shadow-sm space-y-4"
+                {diagnosticStage === "idle" ? (
+                  <motion.div key="upload" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    className="w-72 sm:w-80 rounded-xl bg-background border shadow-sm p-5 space-y-4"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <SlidersHorizontal className="w-4 h-4 text-primary" />
-                      </div>
+                    {activeModality === "mri" && (
                       <div>
-                        <p className="text-sm font-medium">Configure {activeModality === "xray" ? "X-Ray" : "MRI"} Input</p>
-                        <p className="text-[11px] text-muted-foreground">Step 1 of 2 — set acquisition parameters before upload</p>
-                      </div>
-                    </div>
-
-                    {activeModality === "xray" ? (
-                      <div className="space-y-3">
-                        <div>
-                          <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Projection</label>
-                          <select value={xrayConfig.projection} onChange={e => setXrayConfig(c => ({ ...c, projection: e.target.value }))}
-                            className="mt-1 w-full px-3 py-2 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/20">
-                            {xrayProjections.map(p => <option key={p}>{p}</option>)}
-                          </select>
+                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">Input data type</p>
+                        <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5">
+                          {mriInputFormats.map(f => (
+                            <button
+                              key={f.id}
+                              onClick={() => setMriInputFormat(f.id)}
+                              className={cn(
+                                "flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-all",
+                                mriInputFormat === f.id ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                              )}
+                            >
+                              {f.label}
+                              <span className="block text-[9px] text-muted-foreground font-normal">{f.description}</span>
+                            </button>
+                          ))}
                         </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Side</label>
-                            <select value={xrayConfig.side} onChange={e => setXrayConfig(c => ({ ...c, side: e.target.value }))}
-                              className="mt-1 w-full px-3 py-2 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/20">
-                              {xraySides.map(s => <option key={s}>{s}</option>)}
-                            </select>
-                          </div>
-                          <label className="flex items-end gap-2 text-xs cursor-pointer pb-2">
-                            <input type="checkbox" checked={xrayConfig.weightBearing} onChange={e => setXrayConfig(c => ({ ...c, weightBearing: e.target.checked }))} className="accent-primary" />
-                            <span>Weight-bearing</span>
-                          </label>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Sequence</label>
-                            <select value={mriConfig.sequence} onChange={e => setMriConfig(c => ({ ...c, sequence: e.target.value }))}
-                              className="mt-1 w-full px-3 py-2 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/20">
-                              {mriSequences.map(s => <option key={s}>{s}</option>)}
-                            </select>
-                          </div>
-                          <div>
-                            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Plane</label>
-                            <select value={mriConfig.plane} onChange={e => { setMriConfig(c => ({ ...c, plane: e.target.value })); setSelectedView(e.target.value); }}
-                              className="mt-1 w-full px-3 py-2 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/20">
-                              {mriPlanes.map(p => <option key={p}>{p}</option>)}
-                            </select>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Field Strength</label>
-                            <select value={mriConfig.fieldStrength} onChange={e => setMriConfig(c => ({ ...c, fieldStrength: e.target.value }))}
-                              className="mt-1 w-full px-3 py-2 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/20">
-                              {mriFieldStrengths.map(f => <option key={f}>{f}</option>)}
-                            </select>
-                          </div>
-                          <div>
-                            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Slice · {mriConfig.sliceThickness}mm</label>
-                            <input type="range" min={1} max={6} step={0.5} value={mriConfig.sliceThickness}
-                              onChange={e => setMriConfig(c => ({ ...c, sliceThickness: parseFloat(e.target.value) }))}
-                              className="w-full accent-primary h-1 mt-3 cursor-pointer" />
-                          </div>
-                        </div>
-                        <label className="flex items-center gap-2 text-xs cursor-pointer">
-                          <input type="checkbox" checked={mriConfig.runArtifactRemoval} onChange={e => setMriConfig(c => ({ ...c, runArtifactRemoval: e.target.checked }))} className="accent-primary" />
-                          <span>Run Swin-UNet artifact removal before DEiT-S</span>
-                        </label>
                       </div>
                     )}
-
-                    <div className="flex items-center justify-between pt-2 border-t">
-                      <p className="text-[10px] text-muted-foreground">Model: <span className="font-medium text-foreground/80">{models.find(m => m.id === activeModel)?.name}</span></p>
-                      <button onClick={() => setSetupComplete(true)} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors">
-                        Continue<ChevronRight className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </motion.div>
-                ) : diagnosticStage === "idle" ? (
-                  <motion.div key="upload" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                    className="w-64 h-64 sm:w-72 sm:h-72 rounded-xl bg-foreground/5 border-2 border-dashed border-border hover:border-primary/40 flex flex-col items-center justify-center gap-3 transition-all cursor-pointer"
-                    style={{ transform: `scale(${zoom / 100})`, filter: `brightness(${brightness}%) contrast(${contrast}%)` }}
-                    onClick={(e) => { e.stopPropagation(); handleFileSelect(); }}
-                  >
-                    <div className="w-14 h-14 rounded-xl bg-muted flex items-center justify-center">
-                      <Image className="w-7 h-7 text-muted-foreground" />
-                    </div>
-                    <div className="text-center px-4">
-                      <p className="text-sm font-medium">{selectedView} {activeModality === "xray" ? "X-Ray" : "MRI"}</p>
-                      <p className="text-[10px] text-muted-foreground">{activeModality === "xray"
-                        ? `${xrayConfig.projection.split(" ")[0]} · ${xrayConfig.side}${xrayConfig.weightBearing ? " · WB" : ""}`
-                        : `${mriConfig.sequence} · ${mriConfig.fieldStrength} · ${mriConfig.sliceThickness}mm`}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">Drag & drop or click to upload</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">DICOM, JPEG, PNG{activeModality === "mri" ? ", NIfTI" : ""}</p>
-                    </div>
-                    <button className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors mt-1">
-                      <Upload className="w-3 h-3 inline mr-1" />Upload
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleFileSelect(); }}
+                      className="w-full h-44 rounded-xl bg-foreground/5 border-2 border-dashed border-border hover:border-primary/40 hover:bg-primary/5 flex flex-col items-center justify-center gap-2 transition-all"
+                    >
+                      <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center">
+                        <Upload className="w-6 h-6 text-muted-foreground" />
+                      </div>
+                      <div className="text-center px-4">
+                        <p className="text-sm font-medium">Upload {activeModality === "xray" ? "X-Ray" : "MRI"} scan</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          {activeModality === "xray"
+                            ? "DICOM, JPEG or PNG"
+                            : mriInputFormat === "dicom" ? "DICOM (.dcm)" : "NIfTI (.nii / .nii.gz)"}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground/70 mt-0.5">Drag & drop or click</p>
+                      </div>
                     </button>
-                    <button onClick={(e) => { e.stopPropagation(); setSetupComplete(false); }} className="text-[10px] text-muted-foreground hover:text-foreground underline">
-                      ← Edit input settings
-                    </button>
+                    <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                      <span>View: <span className="font-medium text-foreground/80">{selectedView}</span></span>
+                      <span>Model: <span className="font-medium text-foreground/80">{models.find(m => m.id === activeModel)?.name}</span></span>
+                    </div>
                   </motion.div>
                 ) : diagnosticStage === "complete" ? (
                   <motion.div key="result-image" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0">
@@ -1302,7 +1221,7 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                       )}
                     </div>
                     {showGradCAM && (
-                      <div className="absolute inset-0" style={{ opacity: gradcamOpacity / 100 }}>
+                      <div className="absolute inset-0">
                         <div className="absolute top-1/4 left-1/3 w-32 h-24 rounded-full bg-gradient-radial from-red-500/60 via-yellow-500/30 to-transparent blur-lg" />
                         <div className="absolute top-1/2 left-1/4 w-20 h-16 rounded-full bg-gradient-radial from-orange-500/40 via-yellow-500/20 to-transparent blur-md" />
                       </div>
@@ -1333,13 +1252,10 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
               </AnimatePresence>
 
               {diagnosticStage === "complete" && (
-                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-background/90 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-sm border">
-                  <button onClick={() => setShowGradCAM(!showGradCAM)} className={cn("px-2.5 py-1 rounded-full text-[10px] font-medium transition-all", showGradCAM ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-background/90 backdrop-blur-sm rounded-full p-1 shadow-sm border">
+                  <button onClick={() => setShowGradCAM(!showGradCAM)} className={cn("px-3 py-1 rounded-full text-[10px] font-medium transition-all", showGradCAM ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
                     {showGradCAM ? "Hide" : "Show"} Heatmap
                   </button>
-                  {showGradCAM && (
-                    <input type="range" min="10" max="100" value={gradcamOpacity} onChange={e => setGradcamOpacity(parseInt(e.target.value))} className="w-14 accent-primary h-1" />
-                  )}
                 </div>
               )}
             </div>
@@ -1347,7 +1263,6 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
             {/* Pipeline info */}
             <div className="px-4 py-2 border-t bg-muted/20 flex-shrink-0">
               <div className="flex items-center gap-3 text-[10px] flex-wrap text-muted-foreground">
-                <span><strong className="text-foreground/70">Pipeline:</strong> {activeModality === "xray" ? "X-Ray Phase I" : "MRI Phase II"}</span>
                 <span><strong className="text-foreground/70">Model:</strong> {models.find(m => m.id === activeModel)?.name}</span>
                 <span><strong className="text-foreground/70">Acc:</strong> {models.find(m => m.id === activeModel)?.accuracy}</span>
               </div>
@@ -1388,7 +1303,7 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                   <Brain className="w-4 h-4 text-primary" />
                   <p className="text-sm font-medium">Model Performance</p>
                   <span className="text-[10px] text-muted-foreground ml-1">
-                    {activeModality === "xray" ? "Phase I — X-Ray ensemble" : "Phase II — MRI (DEiT-S)"}
+                    {activeModality === "xray" ? "X-Ray ensemble" : "MRI · DEiT-S"}
                   </span>
                 </div>
                 <div className="overflow-hidden rounded-lg border">
