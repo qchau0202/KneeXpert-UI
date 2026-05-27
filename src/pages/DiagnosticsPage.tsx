@@ -1222,7 +1222,7 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                       )}
                     </div>
                     {showGradCAM && (
-                      <div className="absolute inset-0" style={{ opacity: gradcamOpacity / 100 }}>
+                      <div className="absolute inset-0">
                         <div className="absolute top-1/4 left-1/3 w-32 h-24 rounded-full bg-gradient-radial from-red-500/60 via-yellow-500/30 to-transparent blur-lg" />
                         <div className="absolute top-1/2 left-1/4 w-20 h-16 rounded-full bg-gradient-radial from-orange-500/40 via-yellow-500/20 to-transparent blur-md" />
                       </div>
@@ -1253,13 +1253,10 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
               </AnimatePresence>
 
               {diagnosticStage === "complete" && (
-                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-background/90 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-sm border">
-                  <button onClick={() => setShowGradCAM(!showGradCAM)} className={cn("px-2.5 py-1 rounded-full text-[10px] font-medium transition-all", showGradCAM ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-background/90 backdrop-blur-sm rounded-full p-1 shadow-sm border">
+                  <button onClick={() => setShowGradCAM(!showGradCAM)} className={cn("px-3 py-1 rounded-full text-[10px] font-medium transition-all", showGradCAM ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
                     {showGradCAM ? "Hide" : "Show"} Heatmap
                   </button>
-                  {showGradCAM && (
-                    <input type="range" min="10" max="100" value={gradcamOpacity} onChange={e => setGradcamOpacity(parseInt(e.target.value))} className="w-14 accent-primary h-1" />
-                  )}
                 </div>
               )}
             </div>
