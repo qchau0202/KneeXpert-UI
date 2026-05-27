@@ -1267,7 +1267,6 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
             {/* Pipeline info */}
             <div className="px-4 py-2 border-t bg-muted/20 flex-shrink-0">
               <div className="flex items-center gap-3 text-[10px] flex-wrap text-muted-foreground">
-                <span><strong className="text-foreground/70">Pipeline:</strong> {activeModality === "xray" ? "X-Ray Phase I" : "MRI Phase II"}</span>
                 <span><strong className="text-foreground/70">Model:</strong> {models.find(m => m.id === activeModel)?.name}</span>
                 <span><strong className="text-foreground/70">Acc:</strong> {models.find(m => m.id === activeModel)?.accuracy}</span>
               </div>
