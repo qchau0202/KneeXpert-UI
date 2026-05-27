@@ -24,9 +24,7 @@ const xrayModels = [
   { id: "resnet", name: "ResNet50", description: "Baseline comparison", accuracy: "89.5%" },
 ];
 const mriModels = [
-  { id: "swin-densenet", name: "Swin-UNet + DenseNet201", description: "Artifact removal + classification", accuracy: "93.5%" },
-  { id: "swin-vit", name: "Swin-UNet + ViT-B/16", description: "Artifact removal + global analysis", accuracy: "91.7%" },
-  { id: "swin-resnet", name: "Swin-UNet + ResNet50", description: "Artifact removal + baseline", accuracy: "88.2%" },
+  { id: "deit-s", name: "DEiT-S", description: "Data-efficient Image Transformer (Small) — Swin-UNet cleaned input", accuracy: "92.4%" },
 ];
 const xrayViews = ["AP", "Lateral"];
 const mriViews = ["Sagittal", "Coronal", "Axial"];
@@ -44,7 +42,7 @@ const mriStages: { id: DiagnosticStage; label: string; duration: number }[] = [
   { id: "uploading", label: "Uploading MRI DICOM file...", duration: 1500 },
   { id: "preprocessing", label: "Pre-processing: Normalization + Quality Check", duration: 1500 },
   { id: "artifact-removal", label: "Stage 2: Swin-UNet Artifact Removal (KMAR-50K)", duration: 2500 },
-  { id: "inference", label: "Stage 3: Downstream Classification on Cleaned Data", duration: 2200 },
+  { id: "inference", label: "Stage 3: DEiT-S Classification on Cleaned Data", duration: 2200 },
   { id: "gradcam", label: "Generating Grad-CAM heatmap...", duration: 1200 },
   { id: "complete", label: "Analysis complete", duration: 0 },
 ];
