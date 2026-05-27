@@ -590,20 +590,8 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   const [isDragging, setIsDragging] = useState(false);
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
 
-  // Phase gating: doctor must configure scan inputs before they can upload.
-  const [setupComplete, setSetupComplete] = useState(false);
-  const [xrayConfig, setXrayConfig] = useState<XrayConfig>({
-    projection: xrayProjections[0],
-    side: xraySides[0],
-    weightBearing: true,
-  });
-  const [mriConfig, setMriConfig] = useState<MriConfig>({
-    sequence: mriSequences[1],
-    plane: mriPlanes[0],
-    fieldStrength: mriFieldStrengths[1],
-    sliceThickness: 3,
-    runArtifactRemoval: true,
-  });
+  // MRI only — choose the input data format (DICOM or NIfTI).
+  const [mriInputFormat, setMriInputFormat] = useState<MriInputFormat>("dicom");
 
   const toolCursor = activeTool === "pan" ? (isPanning ? "grabbing" : "grab") 
     : activeTool === "measure" ? "crosshair" 
