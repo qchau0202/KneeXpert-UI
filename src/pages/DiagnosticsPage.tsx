@@ -612,7 +612,6 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
     setDiagnosticStage("idle");
     setStagesCompleted([]);
     setCurrentStageIndex(0);
-    setSetupComplete(false);
     setActiveTool("select");
   };
 
