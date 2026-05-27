@@ -580,7 +580,6 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   const [overrideGrade, setOverrideGrade] = useState<number | null>(null);
   const [showOverridePanel, setShowOverridePanel] = useState(false);
   const [overrideNotes, setOverrideNotes] = useState("");
-  const [gradcamOpacity, setGradcamOpacity] = useState(70);
   const [selectedView, setSelectedView] = useState(views[0]);
   const [diagnosticStage, setDiagnosticStage] = useState<DiagnosticStage>("idle");
   const [uploadedFileName, setUploadedFileName] = useState("");
