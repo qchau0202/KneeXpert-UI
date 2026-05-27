@@ -52,6 +52,29 @@ const mockResults = {
   mri: { grade: 2, confidence: 87.6, findings: ["Cartilage thinning (medial femoral condyle)", "Mild meniscal degeneration", "No significant effusion"] },
 };
 
+// Per-model performance (mocked) shown after analysis
+const modelPerformance = {
+  xray: [
+    { id: "resnet", name: "ResNet50", grade: 3, confidence: 91.4, latency: "182 ms", accuracy: "89.5%" },
+    { id: "densenet", name: "DenseNet201", grade: 3, confidence: 94.7, latency: "214 ms", accuracy: "94.2%" },
+    { id: "vgg", name: "VGG-19", grade: 3, confidence: 90.1, latency: "245 ms", accuracy: "88.1%" },
+    { id: "ensemble", name: "Ensemble (Majority Vote)", grade: 3, confidence: 94.2, latency: "641 ms", accuracy: "95.1%" },
+  ],
+  mri: [
+    { id: "deit-s", name: "DEiT-S (on Swin-UNet output)", grade: 2, confidence: 87.6, latency: "298 ms", accuracy: "92.4%" },
+  ],
+} as const;
+
+// Modality-specific input configuration options
+const xrayProjections = ["AP (Anteroposterior)", "Lateral", "Skyline / Sunrise", "Rosenberg"];
+const xraySides = ["Left", "Right", "Bilateral"];
+const mriSequences = ["T1-weighted", "T2-weighted", "PD (Proton Density)", "STIR", "T2 Fat-Sat"];
+const mriPlanes = ["Sagittal", "Coronal", "Axial"];
+const mriFieldStrengths = ["1.5 T", "3.0 T"];
+
+interface XrayConfig { projection: string; side: string; weightBearing: boolean }
+interface MriConfig { sequence: string; plane: string; fieldStrength: string; sliceThickness: number; runArtifactRemoval: boolean }
+
 // ============================================================
 // Phase 1 — Patient Selector (clean card-based layout)
 // ============================================================
