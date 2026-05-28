@@ -65,12 +65,18 @@ const modelPerformance = {
   ],
 } as const;
 
-// MRI input data formats
-const mriInputFormats = [
-  { id: "dicom", label: "DICOM", description: ".dcm series" },
-  { id: "nifti", label: "NIfTI", description: ".nii / .nii.gz" },
-] as const;
-type MriInputFormat = typeof mriInputFormats[number]["id"];
+// MRI supported input formats (informational — pipeline auto-detects)
+const mriSupportedFormats = [
+  "DICOM (.dcm)",
+  "NIfTI (.nii, .nii.gz)",
+  "NRRD (.nrrd, .nhdr)",
+  "MetaImage (.mha, .mhd)",
+  "Analyze (.img, .hdr)",
+  "MINC (.mnc)",
+  "PAR/REC (.par, .rec)",
+  "Pickle (.pkl)",
+];
+const mriAcceptString = ".dcm,.dicom,.nii,.nii.gz,.nrrd,.nhdr,.mha,.mhd,.img,.hdr,.mnc,.par,.rec,.pkl";
 
 // ============================================================
 // Phase 1 — Patient Selector (clean card-based layout)
@@ -526,10 +532,8 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageContainerRef = useRef<HTMLDivElement>(null);
   const [activeModality, setActiveModality] = useState<Modality>(patient.modality);
-  const models = activeModality === "xray" ? xrayModels : mriModels;
   const views = activeModality === "xray" ? xrayViews : mriViews;
 
-  const [activeModel, setActiveModel] = useState(models[0].id);
   const [showGradCAM, setShowGradCAM] = useState(true);
   const [brightness, setBrightness] = useState(100);
   const [contrast, setContrast] = useState(100);
@@ -589,9 +593,6 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   const [isDragging, setIsDragging] = useState(false);
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
 
-  // MRI only — choose the input data format (DICOM or NIfTI).
-  const [mriInputFormat, setMriInputFormat] = useState<MriInputFormat>("dicom");
-
   const toolCursor = activeTool === "pan" ? (isPanning ? "grabbing" : "grab") 
     : activeTool === "measure" ? "crosshair" 
     : activeTool === "annotate" ? "crosshair" 
@@ -605,8 +606,6 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
 
   const handleModalitySwitch = (mod: Modality) => {
     setActiveModality(mod);
-    const newModels = mod === "xray" ? xrayModels : mriModels;
-    setActiveModel(newModels[0].id);
     setSelectedView(mod === "xray" ? xrayViews[0] : mriViews[0]);
     setDiagnosticStage("idle");
     setStagesCompleted([]);
