@@ -80,31 +80,27 @@ const mriSupportedFormats = [
 const mriAcceptString = ".dcm,.dicom,.nii,.nii.gz,.nrrd,.nhdr,.mha,.mhd,.img,.hdr,.mnc,.par,.rec,.pkl";
 
 // ============================================================
-// Phase 1 — Patient Selector (clean card-based layout)
+// Patient Selector — unified multi-select (1 or many patients)
 // ============================================================
-type DiagViewMode = "individual" | "batch";
-type BatchViewMode = "grid" | "list";
+const getPatientModalities = (p: Patient): Modality[] =>
+  Array.from(new Set(p.scans.map(s => s.modality))) as Modality[];
 
-// Mock batch diagnostic status
-interface BatchPatientStatus {
-  patientId: string;
-  status: "queued" | "processing" | "completed" | "failed";
-  progress: number;
-  grade?: number;
-  confidence?: number;
-  startedAt?: string;
-}
+// Estimated seconds per scan modality (sum of stage durations / 1000, with overhead)
+const estimateSecondsForPatient = (p: Patient): number => {
+  const mods = getPatientModalities(p);
+  let s = 0;
+  if (mods.includes("xray")) s += 7; // ensemble inference
+  if (mods.includes("mri"))  s += 9; // includes Swin-UNet artifact removal
+  if (mods.length > 1)       s += 3; // cross-modality fusion
+  return s;
+};
 
-function PatientSelector({ onSelect, onBatchSelect }: { onSelect: (p: Patient) => void; onBatchSelect: (patients: Patient[]) => void }) {
+function PatientSelector({ onConfirm }: { onConfirm: (patients: Patient[]) => void }) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [modalityFilter, setModalityFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<"name" | "date" | "pain">("date");
-  const [viewMode, setViewMode] = useState<DiagViewMode>("individual");
-  const [batchView, setBatchView] = useState<BatchViewMode>("grid");
-  const [selectedForBatch, setSelectedForBatch] = useState<Set<string>>(new Set());
-  const [batchStatuses, setBatchStatuses] = useState<Map<string, BatchPatientStatus>>(new Map());
-  const [batchRunning, setBatchRunning] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const filtered = useMemo(() => {
     let list = [...mockPatients];
@@ -113,7 +109,9 @@ function PatientSelector({ onSelect, onBatchSelect }: { onSelect: (p: Patient) =
       list = list.filter(p => p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q));
     }
     if (statusFilter !== "all") list = list.filter(p => p.status === statusFilter);
-    if (modalityFilter !== "all") list = list.filter(p => p.modality === modalityFilter);
+    if (modalityFilter !== "all") {
+      list = list.filter(p => getPatientModalities(p).includes(modalityFilter as Modality));
+    }
     list.sort((a, b) => {
       if (sortBy === "name") return a.name.localeCompare(b.name);
       if (sortBy === "pain") return b.painLevel - a.painLevel;
@@ -125,10 +123,10 @@ function PatientSelector({ onSelect, onBatchSelect }: { onSelect: (p: Patient) =
   const statusOptions = ["all", "pending", "analyzed", "confirmed", "flagged"];
   const urgentCount = mockPatients.filter(p => p.status === "flagged" || p.painLevel >= 7).length;
   const pendingCount = mockPatients.filter(p => p.status === "pending").length;
-  const withScansCount = mockPatients.filter(p => p.scans.some(s => s.grade !== null || s.aiConfidence !== null)).length;
+  const multiModalityCount = mockPatients.filter(p => getPatientModalities(p).length > 1).length;
 
-  const toggleBatchSelect = (id: string) => {
-    setSelectedForBatch(prev => {
+  const toggle = (id: string) => {
+    setSelected(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
       return next;
@@ -136,72 +134,19 @@ function PatientSelector({ onSelect, onBatchSelect }: { onSelect: (p: Patient) =
   };
 
   const selectAllFiltered = () => {
-    if (selectedForBatch.size === filtered.length) {
-      setSelectedForBatch(new Set());
+    if (filtered.every(p => selected.has(p.id))) {
+      const next = new Set(selected);
+      filtered.forEach(p => next.delete(p.id));
+      setSelected(next);
     } else {
-      setSelectedForBatch(new Set(filtered.map(p => p.id)));
+      const next = new Set(selected);
+      filtered.forEach(p => next.add(p.id));
+      setSelected(next);
     }
   };
 
-  const startBatchDiagnosis = () => {
-    const patients = mockPatients.filter(p => selectedForBatch.has(p.id));
-    setBatchRunning(true);
-    const statuses = new Map<string, BatchPatientStatus>();
-    patients.forEach((p, i) => {
-      statuses.set(p.id, { patientId: p.id, status: i === 0 ? "processing" : "queued", progress: 0 });
-    });
-    setBatchStatuses(new Map(statuses));
-
-    // Simulate sequential processing
-    let idx = 0;
-    const processNext = () => {
-      if (idx >= patients.length) { setBatchRunning(false); return; }
-      const p = patients[idx];
-      statuses.set(p.id, { ...statuses.get(p.id)!, status: "processing", progress: 0 });
-      setBatchStatuses(new Map(statuses));
-
-      let prog = 0;
-      const interval = setInterval(() => {
-        prog += Math.random() * 20 + 10;
-        if (prog >= 100) {
-          prog = 100;
-          clearInterval(interval);
-          const mockGrade = p.grade ?? Math.floor(Math.random() * 4) + 1;
-          const mockConf = p.aiConfidence ?? Math.round(70 + Math.random() * 25 * 10) / 10;
-          statuses.set(p.id, { patientId: p.id, status: "completed", progress: 100, grade: mockGrade, confidence: mockConf });
-          setBatchStatuses(new Map(statuses));
-          idx++;
-          if (idx < patients.length) {
-            setTimeout(processNext, 500);
-          } else {
-            setBatchRunning(false);
-          }
-        } else {
-          statuses.set(p.id, { ...statuses.get(p.id)!, progress: Math.min(prog, 99) });
-          setBatchStatuses(new Map(statuses));
-        }
-      }, 300);
-    };
-    processNext();
-  };
-
-  const getBatchStatusColor = (status: string) => {
-    switch (status) {
-      case "completed": return "text-success";
-      case "processing": return "text-primary";
-      case "failed": return "text-destructive";
-      default: return "text-muted-foreground";
-    }
-  };
-
-  const getBatchStatusIcon = (status: string) => {
-    switch (status) {
-      case "completed": return <CheckCircle2 className="w-4 h-4 text-success" />;
-      case "processing": return <Loader2 className="w-4 h-4 text-primary animate-spin" />;
-      case "failed": return <AlertTriangle className="w-4 h-4 text-destructive" />;
-      default: return <Clock className="w-4 h-4 text-muted-foreground" />;
-    }
-  };
+  const selectedPatients = mockPatients.filter(p => selected.has(p.id));
+  const totalEta = selectedPatients.reduce((s, p) => s + estimateSecondsForPatient(p), 0);
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 overflow-auto">
@@ -210,7 +155,7 @@ function PatientSelector({ onSelect, onBatchSelect }: { onSelect: (p: Patient) =
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">Diagnostic Workspace</h1>
-            <p className="text-xs text-muted-foreground mt-0.5">Select a patient or run batch AI diagnosis on existing scans</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Select one or more patients to run AI diagnosis. Multi-modality scans are analyzed jointly for higher reliability.</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-warning/10 text-warning text-xs font-medium">
@@ -220,31 +165,9 @@ function PatientSelector({ onSelect, onBatchSelect }: { onSelect: (p: Patient) =
               <Clock className="w-3.5 h-3.5" />{pendingCount} pending
             </div>
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-medium">
-              <Scan className="w-3.5 h-3.5" />{withScansCount} with scans
+              <Layers className="w-3.5 h-3.5" />{multiModalityCount} multi-modality
             </div>
           </div>
-        </div>
-
-        {/* Mode toggle */}
-        <div className="flex items-center gap-3 mb-4">
-          <div className="flex items-center gap-0.5 bg-muted rounded-lg p-0.5">
-            <button onClick={() => setViewMode("individual")} className={cn("px-3 py-1.5 rounded-md text-xs font-medium transition-all", viewMode === "individual" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground")}>
-              Individual
-            </button>
-            <button onClick={() => setViewMode("batch")} className={cn("px-3 py-1.5 rounded-md text-xs font-medium transition-all", viewMode === "batch" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground")}>
-              Batch Diagnosis
-            </button>
-          </div>
-          {viewMode === "batch" && (
-            <div className="flex items-center gap-0.5 bg-muted rounded-lg p-0.5">
-              <button onClick={() => setBatchView("grid")} className={cn("px-2 py-1.5 rounded-md transition-all", batchView === "grid" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground")}>
-                <Grid3X3 className="w-3.5 h-3.5" />
-              </button>
-              <button onClick={() => setBatchView("list")} className={cn("px-2 py-1.5 rounded-md transition-all", batchView === "list" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground")}>
-                <List className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          )}
         </div>
 
         {/* Search */}
@@ -270,7 +193,7 @@ function PatientSelector({ onSelect, onBatchSelect }: { onSelect: (p: Patient) =
             {["all", "xray", "mri"].map(m => (
               <button key={m} onClick={() => setModalityFilter(m)}
                 className={cn("px-2.5 py-1.5 rounded-md text-xs font-medium transition-all", modalityFilter === m ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
-              >{m === "all" ? "All Types" : m === "xray" ? "X-Ray" : "MRI"}</button>
+              >{m === "all" ? "All Modalities" : m === "xray" ? "Has X-Ray" : "Has MRI"}</button>
             ))}
           </div>
           <div className="flex items-center gap-1.5 ml-auto">
@@ -284,235 +207,75 @@ function PatientSelector({ onSelect, onBatchSelect }: { onSelect: (p: Patient) =
           </div>
         </div>
 
-        {/* Batch controls */}
-        {viewMode === "batch" && (
-          <div className="flex items-center justify-between mb-3 p-3 rounded-xl border bg-muted/30">
-            <div className="flex items-center gap-3">
-              <button onClick={selectAllFiltered} className="text-xs text-primary hover:underline font-medium">
-                {selectedForBatch.size === filtered.length ? "Deselect All" : "Select All"}
-              </button>
-              <span className="text-xs text-muted-foreground">{selectedForBatch.size} selected</span>
-            </div>
-            <div className="flex items-center gap-2">
-              {batchRunning && (
-                <span className="text-xs text-primary flex items-center gap-1.5">
-                  <Loader2 className="w-3 h-3 animate-spin" />Processing...
-                </span>
-              )}
-              <button
-                onClick={startBatchDiagnosis}
-                disabled={selectedForBatch.size === 0 || batchRunning}
-                className={cn("inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium transition-all",
-                  selectedForBatch.size > 0 && !batchRunning
-                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                    : "bg-muted text-muted-foreground cursor-not-allowed"
-                )}
-              >
-                <Play className="w-3 h-3" />Run AI Diagnosis ({selectedForBatch.size})
-              </button>
-            </div>
+        {/* Action bar */}
+        <div className="flex items-center justify-between mb-3 p-3 rounded-xl border bg-muted/30 sticky top-0 z-10 backdrop-blur-sm">
+          <div className="flex items-center gap-3">
+            <button onClick={selectAllFiltered} className="text-xs text-primary hover:underline font-medium">
+              {filtered.length > 0 && filtered.every(p => selected.has(p.id)) ? "Deselect Filtered" : "Select Filtered"}
+            </button>
+            <span className="text-xs text-muted-foreground">
+              {selected.size} selected · est. {totalEta}s
+            </span>
           </div>
-        )}
+          <button
+            onClick={() => onConfirm(selectedPatients)}
+            disabled={selected.size === 0}
+            className={cn("inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium transition-all",
+              selected.size > 0
+                ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                : "bg-muted text-muted-foreground cursor-not-allowed"
+            )}
+          >
+            <ArrowRight className="w-3.5 h-3.5" />Continue ({selected.size})
+          </button>
+        </div>
 
         <p className="text-xs text-muted-foreground mb-3">{filtered.length} patient{filtered.length !== 1 ? "s" : ""} found</p>
 
-        {/* ===== INDIVIDUAL MODE ===== */}
-        {viewMode === "individual" && (
-          <div className="space-y-2">
-            {filtered.map(p => (
-              <button key={p.id} onClick={() => onSelect(p)}
-                className="w-full text-left p-4 rounded-xl border bg-card hover:border-primary/30 hover:shadow-sm transition-all group">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/20 transition-colors">
-                    <User className="w-5 h-5 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-medium">{p.name}</span>
-                      <span className="text-xs font-mono text-muted-foreground">{p.id}</span>
-                      <StatusBadge status={p.status} />
-                      <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-muted font-medium text-muted-foreground">{p.modality === "xray" ? "X-Ray" : "MRI"}</span>
-                    </div>
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1 flex-wrap">
-                      <span>{p.age}yo · {p.gender}</span>
-                      <span>BMI {p.bmi}</span>
-                      <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{p.lastVisit}</span>
-                    </div>
-                  </div>
-                  <div className="hidden sm:flex items-center gap-4 flex-shrink-0">
-                    <div className="flex flex-col items-end gap-0.5">
-                      <span className="text-[10px] text-muted-foreground">Pain</span>
-                      <div className="flex gap-0.5">
-                        {Array.from({ length: 10 }).map((_, i) => (
-                          <div key={i} className={cn("w-1 h-3 rounded-sm", i < p.painLevel ? (p.painLevel >= 7 ? "bg-destructive" : p.painLevel >= 4 ? "bg-warning" : "bg-success") : "bg-muted")} />
-                        ))}
-                      </div>
-                    </div>
-                    {p.grade !== null && (
-                      <div className="flex flex-col items-end gap-0.5">
-                        <span className="text-[10px] text-muted-foreground">Grade</span>
-                        <GradeBadge grade={p.grade} />
-                      </div>
-                    )}
-                    <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+        {/* Patient cards — unified multi-select */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {filtered.map(p => {
+            const mods = getPatientModalities(p);
+            const isSelected = selected.has(p.id);
+            const eta = estimateSecondsForPatient(p);
+            return (
+              <button key={p.id} onClick={() => toggle(p.id)} type="button"
+                className={cn("relative p-4 rounded-xl border bg-card text-left transition-all",
+                  isSelected ? "border-primary ring-1 ring-primary/30 shadow-sm" : "hover:border-border/80 hover:shadow-sm")}>
+                <div className="absolute top-3 right-3">
+                  <div className={cn("w-5 h-5 rounded border-2 flex items-center justify-center transition-all",
+                    isSelected ? "bg-primary border-primary" : "border-muted-foreground/30")}>
+                    {isSelected && <Check className="w-3 h-3 text-primary-foreground" />}
                   </div>
                 </div>
-                <div className="mt-3 pt-3 border-t border-border/40 flex items-center gap-4 text-xs text-muted-foreground">
-                  <span className="truncate flex-1"><span className="text-foreground/60">Symptoms:</span> {p.symptoms}</span>
-                  <span className="flex-shrink-0">{p.scans.length} scan{p.scans.length !== 1 ? "s" : ""}</span>
+                <div className="flex items-center gap-3 mb-3 pr-7">
+                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <User className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate">{p.name}</p>
+                    <p className="text-[10px] text-muted-foreground font-mono">{p.id} · {p.age}yo · {p.gender}</p>
+                  </div>
+                </div>
+                <div className="space-y-1.5 text-xs text-muted-foreground">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1">
+                      {mods.includes("xray") && <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-muted font-medium">X-Ray</span>}
+                      {mods.includes("mri") && <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-muted font-medium">MRI</span>}
+                      {mods.length > 1 && <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">Joint</span>}
+                    </div>
+                    <StatusBadge status={p.status} />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>{p.scans.length} scan{p.scans.length !== 1 ? "s" : ""}</span>
+                    <span className="flex items-center gap-1"><Timer className="w-3 h-3" />~{eta}s</span>
+                  </div>
+                  <p className="text-[10px] truncate">{p.symptoms}</p>
                 </div>
               </button>
-            ))}
-          </div>
-        )}
-
-        {/* ===== BATCH MODE - GRID ===== */}
-        {viewMode === "batch" && batchView === "grid" && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {filtered.map(p => {
-              const bs = batchStatuses.get(p.id);
-              const isSelected = selectedForBatch.has(p.id);
-              return (
-                <div key={p.id} className={cn("relative p-4 rounded-xl border bg-card transition-all cursor-pointer", isSelected ? "border-primary ring-1 ring-primary/20" : "hover:border-border/80")}
-                  onClick={() => bs?.status === "completed" ? onSelect(p) : toggleBatchSelect(p.id)}>
-                  {/* Checkbox */}
-                  <div className="absolute top-3 right-3">
-                    {bs ? getBatchStatusIcon(bs.status) : (
-                      <div className={cn("w-5 h-5 rounded border-2 flex items-center justify-center transition-all", isSelected ? "bg-primary border-primary" : "border-muted-foreground/30")}>
-                        {isSelected && <Check className="w-3 h-3 text-primary-foreground" />}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <User className="w-4 h-4 text-primary" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium truncate">{p.name}</p>
-                      <p className="text-[10px] text-muted-foreground font-mono">{p.id}</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5 text-xs text-muted-foreground">
-                    <div className="flex items-center justify-between">
-                      <span>{p.age}yo · {p.gender}</span>
-                      <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-muted font-medium">{p.modality === "xray" ? "X-Ray" : "MRI"}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>{p.scans.length} scan{p.scans.length !== 1 ? "s" : ""} in database</span>
-                      <StatusBadge status={p.status} />
-                    </div>
-                    <p className="text-[10px] truncate">{p.symptoms}</p>
-                  </div>
-
-                  {/* Batch progress */}
-                  {bs && (
-                    <div className="mt-3 pt-3 border-t">
-                      <div className="flex items-center justify-between text-xs mb-1">
-                        <span className={cn("font-medium capitalize", getBatchStatusColor(bs.status))}>{bs.status}</span>
-                        {bs.status === "completed" && bs.grade !== undefined && (
-                          <div className="flex items-center gap-2">
-                            <GradeBadge grade={bs.grade} />
-                            <span className="text-[10px] text-muted-foreground">{bs.confidence}%</span>
-                          </div>
-                        )}
-                      </div>
-                      {bs.status === "processing" && (
-                        <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
-                          <motion.div className="h-full bg-primary rounded-full" style={{ width: `${bs.progress}%` }} />
-                        </div>
-                      )}
-                      {bs.status === "completed" && (
-                        <button onClick={e => { e.stopPropagation(); onSelect(p); }}
-                          className="mt-2 w-full px-2 py-1.5 rounded-lg text-[10px] font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-center">
-                          View Detailed Results →
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* ===== BATCH MODE - LIST ===== */}
-        {viewMode === "batch" && batchView === "list" && (
-          <div className="border rounded-xl overflow-hidden">
-            <div className="bg-muted/50 px-4 py-2 flex items-center gap-4 text-[10px] font-medium text-muted-foreground uppercase tracking-wider border-b">
-              <div className="w-6" />
-              <div className="flex-1">Patient</div>
-              <div className="w-16 text-center hidden sm:block">Modality</div>
-              <div className="w-16 text-center hidden sm:block">Scans</div>
-              <div className="w-20 text-center hidden md:block">Pain</div>
-              <div className="w-20 text-center">Status</div>
-              <div className="w-28 text-center">AI Result</div>
-            </div>
-            {filtered.map(p => {
-              const bs = batchStatuses.get(p.id);
-              const isSelected = selectedForBatch.has(p.id);
-              return (
-                <div key={p.id} className={cn("flex items-center gap-4 px-4 py-3 border-b last:border-0 transition-colors cursor-pointer", isSelected ? "bg-primary/5" : "hover:bg-muted/30")}
-                  onClick={() => bs?.status === "completed" ? onSelect(p) : toggleBatchSelect(p.id)}>
-                  <div className="w-6 flex-shrink-0">
-                    {bs ? getBatchStatusIcon(bs.status) : (
-                      <div className={cn("w-5 h-5 rounded border-2 flex items-center justify-center transition-all", isSelected ? "bg-primary border-primary" : "border-muted-foreground/30")}>
-                        {isSelected && <Check className="w-3 h-3 text-primary-foreground" />}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0 flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <User className="w-4 h-4 text-primary" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{p.name}</p>
-                      <p className="text-[10px] text-muted-foreground">{p.id} · {p.age}yo</p>
-                    </div>
-                  </div>
-                  <div className="w-16 text-center hidden sm:block">
-                    <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-muted font-medium text-muted-foreground">{p.modality === "xray" ? "X-Ray" : "MRI"}</span>
-                  </div>
-                  <div className="w-16 text-center hidden sm:block text-xs text-muted-foreground">{p.scans.length}</div>
-                  <div className="w-20 hidden md:flex justify-center">
-                    <div className="flex gap-0.5">
-                      {Array.from({ length: 10 }).map((_, i) => (
-                        <div key={i} className={cn("w-1 h-2.5 rounded-sm", i < p.painLevel ? (p.painLevel >= 7 ? "bg-destructive" : p.painLevel >= 4 ? "bg-warning" : "bg-success") : "bg-muted")} />
-                      ))}
-                    </div>
-                  </div>
-                  <div className="w-20 text-center">
-                    {bs ? (
-                      <div>
-                        <span className={cn("text-[10px] font-medium capitalize", getBatchStatusColor(bs.status))}>{bs.status}</span>
-                        {bs.status === "processing" && (
-                          <div className="w-full h-1 bg-muted rounded-full overflow-hidden mt-0.5">
-                            <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${bs.progress}%` }} />
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <StatusBadge status={p.status} />
-                    )}
-                  </div>
-                  <div className="w-28 text-center">
-                    {bs?.status === "completed" ? (
-                      <div className="flex items-center justify-center gap-2">
-                        <GradeBadge grade={bs.grade!} />
-                        <span className="text-[10px] text-muted-foreground">{bs.confidence}%</span>
-                      </div>
-                    ) : bs?.status === "processing" ? (
-                      <span className="text-[10px] text-primary">Analyzing...</span>
-                    ) : (
-                      <span className="text-[10px] text-muted-foreground">—</span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+            );
+          })}
+        </div>
 
         {filtered.length === 0 && (
           <div className="py-16 flex flex-col items-center gap-3 text-muted-foreground">
