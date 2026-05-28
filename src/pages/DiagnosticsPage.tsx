@@ -984,20 +984,12 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                   >
                     {activeModality === "mri" && (
                       <div>
-                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">Input data type</p>
-                        <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5">
-                          {mriInputFormats.map(f => (
-                            <button
-                              key={f.id}
-                              onClick={() => setMriInputFormat(f.id)}
-                              className={cn(
-                                "flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-all",
-                                mriInputFormat === f.id ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                              )}
-                            >
-                              {f.label}
-                              <span className="block text-[9px] text-muted-foreground font-normal">{f.description}</span>
-                            </button>
+                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">Supported formats</p>
+                        <div className="flex flex-wrap gap-1">
+                          {mriSupportedFormats.map(f => (
+                            <span key={f} className="text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">
+                              {f}
+                            </span>
                           ))}
                         </div>
                       </div>
@@ -1014,14 +1006,13 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                         <p className="text-[10px] text-muted-foreground mt-0.5">
                           {activeModality === "xray"
                             ? "DICOM, JPEG or PNG"
-                            : mriInputFormat === "dicom" ? "DICOM (.dcm)" : "NIfTI (.nii / .nii.gz)"}
+                            : "DICOM, NIfTI, NRRD, MHA, Analyze, MINC, PAR/REC, PKL"}
                         </p>
                         <p className="text-[10px] text-muted-foreground/70 mt-0.5">Drag & drop or click</p>
                       </div>
                     </button>
                     <div className="flex items-center justify-between text-[10px] text-muted-foreground">
                       <span>View: <span className="font-medium text-foreground/80">{selectedView}</span></span>
-                      <span>Model: <span className="font-medium text-foreground/80">{models.find(m => m.id === activeModel)?.name}</span></span>
                     </div>
                   </motion.div>
                 ) : diagnosticStage === "complete" ? (
