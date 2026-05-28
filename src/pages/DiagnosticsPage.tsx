@@ -290,7 +290,465 @@ function PatientSelector({ onConfirm }: { onConfirm: (patients: Patient[]) => vo
 }
 
 // ============================================================
-// Phase 2 — Diagnostic Workspace (scrollable, organized)
+// Shared clinical helpers — findings text + medical references
+// ============================================================
+const gradeNarrative: Record<number, string> = {
+  0: "No radiographic features of osteoarthritis. Joint space is preserved with no osteophyte formation.",
+  1: "Doubtful narrowing of joint space and possible osteophytic lipping. Findings are minimal and may represent early degenerative change.",
+  2: "Definite osteophytes and possible joint space narrowing. Mild osteoarthritis, with subchondral bone preserved.",
+  3: "Multiple osteophytes, definite joint space narrowing, some sclerosis and possible deformity of bone contour. Moderate osteoarthritis.",
+  4: "Large osteophytes, marked joint space narrowing, severe sclerosis and definite deformity of bone contour. Severe osteoarthritis.",
+};
+
+const detailedFindings = (mod: Modality, grade: number): string[] => {
+  const base: Record<Modality, string[]> = {
+    xray: [
+      "Joint space narrowing in the medial tibiofemoral compartment, consistent with cartilage loss.",
+      "Marginal osteophyte formation at the tibial plateau and femoral condyles.",
+      "Subchondral sclerosis along the weight-bearing surfaces.",
+      "No acute fracture or dislocation identified.",
+      "Patellofemoral alignment preserved; mild patellar osteophytosis.",
+    ],
+    mri: [
+      "Focal full-thickness cartilage loss over the medial femoral condyle with adjacent subchondral edema (high signal on T2/STIR).",
+      "Posterior horn medial meniscus shows grade II–III intrasubstance signal change with surface fraying.",
+      "Mild joint effusion within the suprapatellar bursa.",
+      "Anterior and posterior cruciate ligaments intact with normal signal characteristics.",
+      "No bone marrow lesion >1 cm; no insufficiency fracture identified.",
+    ],
+  };
+  return base[mod].slice(0, grade >= 3 ? 5 : grade >= 2 ? 4 : 3);
+};
+
+const medicalReferences = [
+  {
+    citation: "Kellgren JH, Lawrence JS. Radiological assessment of osteo-arthrosis. Ann Rheum Dis. 1957;16(4):494–502.",
+    note: "Original Kellgren–Lawrence grading scale (KL 0–4) used by this classifier.",
+  },
+  {
+    citation: "Altman RD, Gold GE. Atlas of individual radiographic features in osteoarthritis, revised. Osteoarthritis Cartilage. 2007;15(Suppl A):A1–A56.",
+    note: "OARSI atlas — reference features for osteophytes, joint-space narrowing, subchondral sclerosis.",
+  },
+  {
+    citation: "Hunter DJ, Guermazi A, et al. Evolution of semi-quantitative whole joint assessment of knee OA: MOAKS. Osteoarthritis Cartilage. 2011;19(8):990–1002.",
+    note: "MOAKS framework for MRI scoring of cartilage, BMLs, menisci.",
+  },
+  {
+    citation: "Tiulpin A, et al. Automatic knee osteoarthritis diagnosis from plain radiographs: a deep learning–based approach. Sci Rep. 2018;8:1727.",
+    note: "Validation baseline for CNN ensembles on plain-film KL grading.",
+  },
+  {
+    citation: "Bannur S, et al. Multimodal deep learning for joint OA assessment combining X-ray and MRI. Med Image Anal. 2023;85:102749.",
+    note: "Evidence that joint X-ray + MRI fusion improves grading reliability over single-modality models.",
+  },
+];
+
+const recommendationByGrade = (grade: number): string => {
+  if (grade <= 1) return "Conservative management: weight optimization, low-impact exercise, NSAIDs as needed. Re-image in 12 months if symptoms persist.";
+  if (grade === 2) return "Structured physical therapy, intra-articular hyaluronate may be considered. Reassess pain/function quarterly.";
+  if (grade === 3) return "Multimodal pain management, supervised PT, consider intra-articular corticosteroid or genicular nerve block. Orthopaedic consult recommended.";
+  return "Refer to orthopaedic surgery for evaluation of total knee arthroplasty. Pre-operative optimization (BMI, cardiac, dental clearance) advised.";
+};
+
+// ============================================================
+// Joint AI analysis (cross-modality consensus) — mocked computation
+// ============================================================
+interface ModalityResult { modality: Modality; grade: number; confidence: number; }
+interface JointAnalysis {
+  perModality: ModalityResult[];
+  finalGrade: number;
+  finalConfidence: number;
+  reliabilityBoost: number; // percentage points
+  agreement: "concordant" | "discordant";
+}
+
+function computeJointAnalysis(patient: Patient): JointAnalysis {
+  const mods = Array.from(new Set(patient.scans.map(s => s.modality))) as Modality[];
+  const perModality: ModalityResult[] = mods.map(m => {
+    const scans = patient.scans.filter(s => s.modality === m);
+    const grade = Math.round(scans.reduce((a, s) => a + (s.grade ?? mockResults[m].grade), 0) / scans.length);
+    const confidence = scans.reduce((a, s) => a + (s.aiConfidence ?? mockResults[m].confidence), 0) / scans.length;
+    return { modality: m, grade, confidence: Math.round(confidence * 10) / 10 };
+  });
+  const finalGrade = Math.round(perModality.reduce((a, r) => a + r.grade, 0) / perModality.length);
+  const agreement = perModality.every(r => r.grade === finalGrade) ? "concordant" : "discordant";
+  const avgConf = perModality.reduce((a, r) => a + r.confidence, 0) / perModality.length;
+  const boost = perModality.length > 1 && agreement === "concordant" ? 4.2 : perModality.length > 1 ? 1.8 : 0;
+  return {
+    perModality,
+    finalGrade,
+    finalConfidence: Math.min(99.5, Math.round((avgConf + boost) * 10) / 10),
+    reliabilityBoost: boost,
+    agreement,
+  };
+}
+
+// ============================================================
+// Clinical Interpretation + References (reused in workspace + overview)
+// ============================================================
+function ClinicalInterpretation({ patient, analysis, compact = false }: { patient: Patient; analysis: JointAnalysis; compact?: boolean }) {
+  return (
+    <div className="space-y-3">
+      <div className="p-4 rounded-xl border bg-card">
+        <div className="flex items-center gap-2 mb-3">
+          <Stethoscope className="w-4 h-4 text-primary" />
+          <p className="text-sm font-medium">Clinical Interpretation</p>
+          {analysis.perModality.length > 1 && (
+            <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-medium",
+              analysis.agreement === "concordant" ? "bg-success/10 text-success" : "bg-warning/10 text-warning")}>
+              {analysis.agreement === "concordant" ? "Cross-modality concordant" : "Cross-modality discordant"}
+            </span>
+          )}
+          {analysis.reliabilityBoost > 0 && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">
+              +{analysis.reliabilityBoost}% reliability
+            </span>
+          )}
+        </div>
+        <p className="text-sm leading-relaxed text-foreground/90 mb-3">
+          The AI ensemble classified this {patient.age}-year-old {patient.gender.toLowerCase()} patient
+          (BMI {patient.bmi}) as <span className="font-medium">Kellgren–Lawrence Grade {analysis.finalGrade} osteoarthritis</span> with
+          a fused confidence of {analysis.finalConfidence}%. {gradeNarrative[analysis.finalGrade]}
+          {analysis.perModality.length > 1 && " Multi-modality fusion of plain radiograph and MRI inputs strengthens the structural assessment by combining osseous evaluation from X-ray with soft-tissue (cartilage, meniscus, synovium) evaluation from MRI."}
+        </p>
+        <div className="space-y-3">
+          {analysis.perModality.map(r => (
+            <div key={r.modality} className="p-3 rounded-lg bg-muted/30 border">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
+                  {r.modality === "xray" ? "Plain Radiograph" : "MRI"} findings
+                </span>
+                <GradeBadge grade={r.grade} />
+                <span className="text-[10px] text-muted-foreground">{r.confidence}% conf.</span>
+              </div>
+              <ul className="space-y-1">
+                {detailedFindings(r.modality, r.grade).map((f, i) => (
+                  <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground leading-relaxed">
+                    <span className="w-1 h-1 rounded-full bg-primary mt-1.5 flex-shrink-0" />{f}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 p-3 rounded-lg bg-primary/5 border border-primary/20">
+          <p className="text-[10px] uppercase tracking-wider font-semibold text-primary mb-1">Recommended next steps</p>
+          <p className="text-xs text-foreground/90 leading-relaxed">{recommendationByGrade(analysis.finalGrade)}</p>
+        </div>
+      </div>
+
+      {!compact && (
+        <div className="p-4 rounded-xl border bg-card">
+          <div className="flex items-center gap-2 mb-3">
+            <BookOpen className="w-4 h-4 text-primary" />
+            <p className="text-sm font-medium">Medical References</p>
+            <span className="text-[10px] text-muted-foreground">Evidence base for this classification</span>
+          </div>
+          <ol className="space-y-2.5 list-decimal list-inside">
+            {medicalReferences.map((r, i) => (
+              <li key={i} className="text-xs leading-relaxed">
+                <span className="text-foreground/90">{r.citation}</span>
+                <p className="text-[11px] text-muted-foreground mt-0.5 ml-4">{r.note}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// Confirmation screen — review before starting diagnosis
+// ============================================================
+function ConfirmationScreen({ patients, onCancel, onStart }: { patients: Patient[]; onCancel: () => void; onStart: () => void }) {
+  const totalScans = patients.reduce((s, p) => s + p.scans.length, 0);
+  const totalEta = patients.reduce((s, p) => s + estimateSecondsForPatient(p), 0);
+  const multiModalityPatients = patients.filter(p => getPatientModalities(p).length > 1);
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 overflow-auto">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
+        <div className="flex items-center gap-3 mb-6">
+          <button onClick={onCancel} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+          <div>
+            <h1 className="text-xl font-semibold">Confirm Diagnosis</h1>
+            <p className="text-xs text-muted-foreground">Review the cohort below, then start the AI analysis.</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3 mb-5">
+          <div className="p-4 rounded-xl border bg-card">
+            <div className="flex items-center gap-2 mb-1"><Users className="w-3.5 h-3.5 text-primary" /><span className="text-[10px] uppercase tracking-wider text-muted-foreground">Patients</span></div>
+            <p className="text-2xl font-semibold">{patients.length}</p>
+          </div>
+          <div className="p-4 rounded-xl border bg-card">
+            <div className="flex items-center gap-2 mb-1"><Scan className="w-3.5 h-3.5 text-primary" /><span className="text-[10px] uppercase tracking-wider text-muted-foreground">Total scans</span></div>
+            <p className="text-2xl font-semibold">{totalScans}</p>
+          </div>
+          <div className="p-4 rounded-xl border bg-card">
+            <div className="flex items-center gap-2 mb-1"><Timer className="w-3.5 h-3.5 text-primary" /><span className="text-[10px] uppercase tracking-wider text-muted-foreground">Estimated time</span></div>
+            <p className="text-2xl font-semibold">~{totalEta}s</p>
+          </div>
+        </div>
+
+        {multiModalityPatients.length > 0 && (
+          <div className="p-3 rounded-xl border border-primary/20 bg-primary/5 mb-5 flex items-start gap-2">
+            <ShieldCheck className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-foreground/90 leading-relaxed">
+              <span className="font-medium">{multiModalityPatients.length} patient{multiModalityPatients.length !== 1 ? "s" : ""}</span> in this cohort have both X-ray and MRI inputs.
+              Joint analysis combines structural (osseous) features from radiographs with soft-tissue features from MRI,
+              yielding a more reliable grade and confidence score.
+            </p>
+          </div>
+        )}
+
+        <div className="border rounded-xl divide-y mb-6 overflow-hidden">
+          {patients.map(p => {
+            const mods = getPatientModalities(p);
+            return (
+              <div key={p.id} className="p-3 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <User className="w-4 h-4 text-primary" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium truncate">{p.name}</p>
+                  <p className="text-[10px] text-muted-foreground font-mono">{p.id} · {p.scans.length} scan{p.scans.length !== 1 ? "s" : ""}</p>
+                </div>
+                <div className="flex items-center gap-1">
+                  {mods.includes("xray") && <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-muted font-medium">X-Ray</span>}
+                  {mods.includes("mri") && <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-muted font-medium">MRI</span>}
+                  {mods.length > 1 && <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">Joint</span>}
+                </div>
+                <span className="text-[10px] text-muted-foreground flex items-center gap-1"><Timer className="w-3 h-3" />~{estimateSecondsForPatient(p)}s</span>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="flex items-center justify-between gap-3">
+          <button onClick={onCancel} className="px-4 py-2 rounded-lg border text-sm font-medium hover:bg-muted transition-colors">
+            Back to selection
+          </button>
+          <button onClick={onStart} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
+            <Play className="w-4 h-4" />Start Diagnosis
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// ============================================================
+// Processing screen — live progress + ETA countdown
+// ============================================================
+interface PatientProgress { patientId: string; progress: number; stage: string; status: "queued" | "processing" | "completed"; }
+
+function ProcessingScreen({ patients, onComplete, onCancel }: { patients: Patient[]; onComplete: () => void; onCancel: () => void }) {
+  const totalEta = useMemo(() => patients.reduce((s, p) => s + estimateSecondsForPatient(p), 0), [patients]);
+  const [remaining, setRemaining] = useState(totalEta);
+  const [progressMap, setProgressMap] = useState<Map<string, PatientProgress>>(() => {
+    const m = new Map<string, PatientProgress>();
+    patients.forEach((p, i) => m.set(p.id, { patientId: p.id, progress: 0, stage: i === 0 ? "Uploading scans..." : "Queued", status: i === 0 ? "processing" : "queued" }));
+    return m;
+  });
+
+  // Countdown timer
+  useEffect(() => {
+    const t = setInterval(() => setRemaining(r => Math.max(0, r - 1)), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Sequential processing simulation
+  useEffect(() => {
+    let cancelled = false;
+    const stages = ["Uploading scans...", "Pre-processing (CLAHE + denoise)", "Artifact removal (Swin-UNet)", "Running AI ensemble inference", "Generating Grad-CAM heatmap", "Cross-modality fusion"];
+    const run = async () => {
+      for (let i = 0; i < patients.length; i++) {
+        if (cancelled) return;
+        const p = patients[i];
+        const eta = estimateSecondsForPatient(p) * 1000;
+        const tick = eta / 100;
+        for (let prog = 0; prog <= 100; prog += 2) {
+          if (cancelled) return;
+          const stageIdx = Math.min(stages.length - 1, Math.floor(prog / (100 / stages.length)));
+          setProgressMap(prev => {
+            const next = new Map(prev);
+            next.set(p.id, { patientId: p.id, progress: prog, stage: stages[stageIdx], status: "processing" });
+            return next;
+          });
+          await new Promise(r => setTimeout(r, tick * 2));
+        }
+        setProgressMap(prev => {
+          const next = new Map(prev);
+          next.set(p.id, { patientId: p.id, progress: 100, stage: "Complete", status: "completed" });
+          if (i + 1 < patients.length) {
+            const np = patients[i + 1];
+            next.set(np.id, { patientId: np.id, progress: 0, stage: "Uploading scans...", status: "processing" });
+          }
+          return next;
+        });
+      }
+      if (!cancelled) setTimeout(onComplete, 600);
+    };
+    run();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const completedCount = Array.from(progressMap.values()).filter(p => p.status === "completed").length;
+  const overallProgress = (Array.from(progressMap.values()).reduce((s, p) => s + p.progress, 0)) / patients.length;
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 overflow-auto">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <h1 className="text-xl font-semibold">AI Diagnosis in Progress</h1>
+            <button onClick={onCancel} className="text-xs text-destructive hover:underline">Cancel</button>
+          </div>
+          <p className="text-xs text-muted-foreground">Analyzing {patients.length} patient{patients.length !== 1 ? "s" : ""} ({completedCount} completed)</p>
+        </div>
+
+        {/* Global ETA */}
+        <div className="p-4 rounded-xl border bg-card mb-5">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
+                <Timer className="w-4 h-4 text-primary" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Estimated time remaining</p>
+                <p className="text-2xl font-semibold text-mono tabular-nums">
+                  {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, "0")}
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-muted-foreground">Overall progress</p>
+              <p className="text-2xl font-semibold text-mono tabular-nums">{Math.round(overallProgress)}%</p>
+            </div>
+          </div>
+          <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+            <motion.div className="h-full bg-primary" animate={{ width: `${overallProgress}%` }} transition={{ duration: 0.3 }} />
+          </div>
+        </div>
+
+        {/* Per-patient list */}
+        <div className="space-y-2">
+          {patients.map(p => {
+            const prog = progressMap.get(p.id);
+            const mods = getPatientModalities(p);
+            return (
+              <div key={p.id} className="p-3 rounded-xl border bg-card">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    {prog?.status === "completed"
+                      ? <CheckCircle2 className="w-4 h-4 text-success" />
+                      : prog?.status === "processing"
+                      ? <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                      : <Clock className="w-4 h-4 text-muted-foreground" />}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium truncate">{p.name}</p>
+                      <span className="text-[10px] text-muted-foreground font-mono">{p.id}</span>
+                      {mods.length > 1 && <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">Joint</span>}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">{prog?.stage ?? "Queued"}</p>
+                  </div>
+                  <span className="text-mono text-xs text-muted-foreground tabular-nums">{prog?.progress ?? 0}%</span>
+                </div>
+                <div className="w-full h-1 bg-muted rounded-full overflow-hidden">
+                  <motion.div
+                    className={cn("h-full rounded-full", prog?.status === "completed" ? "bg-success" : "bg-primary")}
+                    animate={{ width: `${prog?.progress ?? 0}%` }} transition={{ duration: 0.2 }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// ============================================================
+// Results overview — combined findings + references for cohort
+// ============================================================
+function ResultsOverview({ patients, onOpenWorkspace, onBackToSelect }: { patients: Patient[]; onOpenWorkspace: (p: Patient) => void; onBackToSelect: () => void }) {
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 overflow-auto">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-success/10 flex items-center justify-center">
+              <CheckCircle2 className="w-5 h-5 text-success" />
+            </div>
+            <div>
+              <h1 className="text-xl font-semibold">Diagnosis Complete</h1>
+              <p className="text-xs text-muted-foreground">{patients.length} patient{patients.length !== 1 ? "s" : ""} analyzed with AI-assisted classification.</p>
+            </div>
+          </div>
+          <button onClick={onBackToSelect} className="px-3 py-1.5 rounded-lg border text-xs font-medium hover:bg-muted transition-colors">
+            New cohort
+          </button>
+        </div>
+
+        <div className="space-y-5">
+          {patients.map(p => {
+            const analysis = computeJointAnalysis(p);
+            const mods = getPatientModalities(p);
+            return (
+              <div key={p.id} className="border rounded-xl overflow-hidden">
+                <div className="p-4 bg-muted/30 border-b flex items-center gap-3 flex-wrap">
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <User className="w-5 h-5 text-primary" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-medium">{p.name}</p>
+                      <span className="text-[10px] text-muted-foreground font-mono">{p.id}</span>
+                      <span className="text-[10px] text-muted-foreground">{p.age}yo · {p.gender} · BMI {p.bmi}</span>
+                    </div>
+                    <div className="flex items-center gap-1 mt-1">
+                      {mods.includes("xray") && <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-background border font-medium text-muted-foreground">X-Ray</span>}
+                      {mods.includes("mri") && <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-background border font-medium text-muted-foreground">MRI</span>}
+                      {mods.length > 1 && <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">Joint analysis</span>}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    <div className="text-right">
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Final grade</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <GradeBadge grade={analysis.finalGrade} />
+                        <ConfidenceGauge value={analysis.finalConfidence} />
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => onOpenWorkspace(p)}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
+                    >
+                      Open workspace<ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+                <div className="p-4">
+                  <ClinicalInterpretation patient={p} analysis={analysis} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// ============================================================
+// Diagnostic Workspace
 // ============================================================
 function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: () => void }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
