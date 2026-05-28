@@ -4,7 +4,8 @@ import {
   ArrowLeft, Check, X, Sun, Contrast, Maximize2, Layers, Upload, Image, FileImage,
   Loader2, CheckCircle2, Brain, Sparkles, AlertTriangle, User, Calendar,
   ChevronRight, Search, SlidersHorizontal, Clock, Scan, Type, RotateCw,
-  Grid3X3, List, Play, Pause, RefreshCw, Download, Save, Trash2, Move, GripVertical
+  Grid3X3, List, Play, Pause, RefreshCw, Download, Save, Trash2, Move, GripVertical,
+  BookOpen, Activity, ShieldCheck, Timer, Users, ArrowRight, Stethoscope, FlaskConical
 } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { mockPatients, type Patient, type Modality } from "@/data/patients";
