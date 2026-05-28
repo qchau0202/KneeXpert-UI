@@ -65,12 +65,18 @@ const modelPerformance = {
   ],
 } as const;
 
-// MRI input data formats
-const mriInputFormats = [
-  { id: "dicom", label: "DICOM", description: ".dcm series" },
-  { id: "nifti", label: "NIfTI", description: ".nii / .nii.gz" },
-] as const;
-type MriInputFormat = typeof mriInputFormats[number]["id"];
+// MRI supported input formats (informational — pipeline auto-detects)
+const mriSupportedFormats = [
+  "DICOM (.dcm)",
+  "NIfTI (.nii, .nii.gz)",
+  "NRRD (.nrrd, .nhdr)",
+  "MetaImage (.mha, .mhd)",
+  "Analyze (.img, .hdr)",
+  "MINC (.mnc)",
+  "PAR/REC (.par, .rec)",
+  "Pickle (.pkl)",
+];
+const mriAcceptString = ".dcm,.dicom,.nii,.nii.gz,.nrrd,.nhdr,.mha,.mhd,.img,.hdr,.mnc,.par,.rec,.pkl";
 
 // ============================================================
 // Phase 1 — Patient Selector (clean card-based layout)
@@ -526,10 +532,8 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageContainerRef = useRef<HTMLDivElement>(null);
   const [activeModality, setActiveModality] = useState<Modality>(patient.modality);
-  const models = activeModality === "xray" ? xrayModels : mriModels;
   const views = activeModality === "xray" ? xrayViews : mriViews;
 
-  const [activeModel, setActiveModel] = useState(models[0].id);
   const [showGradCAM, setShowGradCAM] = useState(true);
   const [brightness, setBrightness] = useState(100);
   const [contrast, setContrast] = useState(100);
@@ -589,9 +593,6 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
   const [isDragging, setIsDragging] = useState(false);
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
 
-  // MRI only — choose the input data format (DICOM or NIfTI).
-  const [mriInputFormat, setMriInputFormat] = useState<MriInputFormat>("dicom");
-
   const toolCursor = activeTool === "pan" ? (isPanning ? "grabbing" : "grab") 
     : activeTool === "measure" ? "crosshair" 
     : activeTool === "annotate" ? "crosshair" 
@@ -605,8 +606,6 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
 
   const handleModalitySwitch = (mod: Modality) => {
     setActiveModality(mod);
-    const newModels = mod === "xray" ? xrayModels : mriModels;
-    setActiveModel(newModels[0].id);
     setSelectedView(mod === "xray" ? xrayViews[0] : mriViews[0]);
     setDiagnosticStage("idle");
     setStagesCompleted([]);
@@ -975,7 +974,7 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
               onMouseLeave={handleImageMouseUp}
               onClick={handleImageClick}
             >
-              <input ref={fileInputRef} type="file" accept=".dcm,.dicom,.jpg,.jpeg,.png,.nii,.nii.gz" className="hidden" onChange={handleFileChange} />
+              <input ref={fileInputRef} type="file" accept={activeModality === "xray" ? ".dcm,.dicom,.jpg,.jpeg,.png" : mriAcceptString} className="hidden" onChange={handleFileChange} />
 
               <AnimatePresence mode="wait">
                 {diagnosticStage === "idle" ? (
@@ -985,20 +984,12 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                   >
                     {activeModality === "mri" && (
                       <div>
-                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">Input data type</p>
-                        <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5">
-                          {mriInputFormats.map(f => (
-                            <button
-                              key={f.id}
-                              onClick={() => setMriInputFormat(f.id)}
-                              className={cn(
-                                "flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-all",
-                                mriInputFormat === f.id ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                              )}
-                            >
-                              {f.label}
-                              <span className="block text-[9px] text-muted-foreground font-normal">{f.description}</span>
-                            </button>
+                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">Supported formats</p>
+                        <div className="flex flex-wrap gap-1">
+                          {mriSupportedFormats.map(f => (
+                            <span key={f} className="text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">
+                              {f}
+                            </span>
                           ))}
                         </div>
                       </div>
@@ -1015,14 +1006,13 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                         <p className="text-[10px] text-muted-foreground mt-0.5">
                           {activeModality === "xray"
                             ? "DICOM, JPEG or PNG"
-                            : mriInputFormat === "dicom" ? "DICOM (.dcm)" : "NIfTI (.nii / .nii.gz)"}
+                            : "DICOM, NIfTI, NRRD, MHA, Analyze, MINC, PAR/REC, PKL"}
                         </p>
                         <p className="text-[10px] text-muted-foreground/70 mt-0.5">Drag & drop or click</p>
                       </div>
                     </button>
                     <div className="flex items-center justify-between text-[10px] text-muted-foreground">
                       <span>View: <span className="font-medium text-foreground/80">{selectedView}</span></span>
-                      <span>Model: <span className="font-medium text-foreground/80">{models.find(m => m.id === activeModel)?.name}</span></span>
                     </div>
                   </motion.div>
                 ) : diagnosticStage === "complete" ? (
@@ -1197,15 +1187,6 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                   <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">Artifact-Free</span>
                 )}
               </div>
-              <div className="flex items-center gap-0.5 bg-background rounded-md p-0.5 border overflow-x-auto max-w-[280px]">
-                {models.map(model => (
-                  <button key={model.id} onClick={() => setActiveModel(model.id)}
-                    className={cn("px-2 py-0.5 rounded text-[10px] font-medium transition-all whitespace-nowrap flex-shrink-0", activeModel === model.id ? "bg-primary text-primary-foreground" : "text-muted-foreground")}
-                  >
-                    {model.name.length > 18 ? model.name.split(" ").slice(0, 2).join(" ") : model.name}
-                  </button>
-                ))}
-              </div>
             </div>
 
             {/* Grad-CAM area */}
@@ -1260,13 +1241,6 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
               )}
             </div>
 
-            {/* Pipeline info */}
-            <div className="px-4 py-2 border-t bg-muted/20 flex-shrink-0">
-              <div className="flex items-center gap-3 text-[10px] flex-wrap text-muted-foreground">
-                <span><strong className="text-foreground/70">Model:</strong> {models.find(m => m.id === activeModel)?.name}</span>
-                <span><strong className="text-foreground/70">Acc:</strong> {models.find(m => m.id === activeModel)?.accuracy}</span>
-              </div>
-            </div>
           </div>
         </div>
 
