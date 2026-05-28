@@ -1538,6 +1538,9 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                 )}
               </div>
 
+              {/* Clinical Interpretation + References */}
+              <ClinicalInterpretation patient={patient} analysis={computeJointAnalysis(patient)} />
+
               {/* Actions */}
               <div className="flex items-center justify-between flex-wrap gap-3">
                 <p className="text-sm">
@@ -1597,25 +1600,56 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
 }
 
 // ============================================================
-// Main Page
+// Main Page — phase state machine
 // ============================================================
+type Phase = "select" | "confirm" | "processing" | "results" | "workspace";
+
 export default function DiagnosticsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const preselectedId = searchParams.get("patient");
-  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(
-    preselectedId ? mockPatients.find(p => p.id === preselectedId) || null : null
+  const [phase, setPhase] = useState<Phase>(preselectedId ? "workspace" : "select");
+  const [cohort, setCohort] = useState<Patient[]>([]);
+  const [workspacePatient, setWorkspacePatient] = useState<Patient | null>(
+    preselectedId ? mockPatients.find(p => p.id === preselectedId) ?? null : null
   );
 
-  const handleSelect = (p: Patient) => { setSelectedPatient(p); setSearchParams({ patient: p.id }); };
-  const handleBack = () => { setSelectedPatient(null); setSearchParams({}); };
+  const goSelect = () => {
+    setPhase("select");
+    setCohort([]);
+    setWorkspacePatient(null);
+    setSearchParams({});
+  };
+
+  const openWorkspace = (p: Patient) => {
+    setWorkspacePatient(p);
+    setPhase("workspace");
+    setSearchParams({ patient: p.id });
+  };
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }} className="h-full flex flex-col">
       <AnimatePresence mode="wait">
-        {selectedPatient ? (
-          <DiagnosticWorkspace key="workspace" patient={selectedPatient} onBack={handleBack} />
-        ) : (
-          <PatientSelector key="selector" onSelect={handleSelect} onBatchSelect={(patients) => { if (patients.length > 0) handleSelect(patients[0]); }} />
+        {phase === "select" && (
+          <PatientSelector key="selector" onConfirm={(patients) => { setCohort(patients); setPhase("confirm"); }} />
+        )}
+        {phase === "confirm" && (
+          <ConfirmationScreen key="confirm" patients={cohort} onCancel={() => setPhase("select")} onStart={() => setPhase("processing")} />
+        )}
+        {phase === "processing" && (
+          <ProcessingScreen key="processing" patients={cohort} onComplete={() => setPhase("results")} onCancel={goSelect} />
+        )}
+        {phase === "results" && (
+          <ResultsOverview key="results" patients={cohort} onOpenWorkspace={openWorkspace} onBackToSelect={goSelect} />
+        )}
+        {phase === "workspace" && workspacePatient && (
+          <DiagnosticWorkspace
+            key="workspace"
+            patient={workspacePatient}
+            onBack={() => {
+              if (cohort.length > 0) { setPhase("results"); setSearchParams({}); }
+              else goSelect();
+            }}
+          />
         )}
       </AnimatePresence>
     </motion.div>
