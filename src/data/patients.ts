@@ -70,6 +70,12 @@ export const mockPatients: Patient[] = [
         grade: 2, aiConfidence: 88.1, modelUsed: "DenseNet201 (Ensemble)",
         preprocessing: ["CLAHE", "Denoise"],
       },
+      {
+        id: "SCN-8842-03", modality: "mri", date: "2026-03-15", view: "Sagittal", region: "Bilateral Knee",
+        grade: 3, aiConfidence: 91.4, modelUsed: "Swin-UNet + DEiT-S",
+        artifactRemoval: { applied: true, method: "Swin-UNet", dataset: "KMAR-50K", qualityScore: 90 },
+        preprocessing: ["Artifact Removal (Swin-UNet)", "CLAHE", "Normalization"],
+      },
     ],
     timeline: [
       { date: "2026-03-15", type: "scan", summary: "Bilateral AP knee X-ray uploaded" },
@@ -105,6 +111,11 @@ export const mockPatients: Patient[] = [
         grade: 2, aiConfidence: 85.3, modelUsed: "Swin-UNet + ViT-B/16",
         artifactRemoval: { applied: true, method: "Swin-UNet", dataset: "KMAR-50K", qualityScore: 89 },
         preprocessing: ["Artifact Removal (Swin-UNet)", "Denoise", "Normalization"],
+      },
+      {
+        id: "SCN-7291-03", modality: "xray", date: "2026-03-14", view: "AP", region: "Right Knee",
+        grade: 2, aiConfidence: 86.7, modelUsed: "DenseNet201 (Ensemble)",
+        preprocessing: ["CLAHE", "Denoise", "Normalization"],
       },
     ],
     timeline: [
