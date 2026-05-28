@@ -974,7 +974,7 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
               onMouseLeave={handleImageMouseUp}
               onClick={handleImageClick}
             >
-              <input ref={fileInputRef} type="file" accept=".dcm,.dicom,.jpg,.jpeg,.png,.nii,.nii.gz" className="hidden" onChange={handleFileChange} />
+              <input ref={fileInputRef} type="file" accept={activeModality === "xray" ? ".dcm,.dicom,.jpg,.jpeg,.png" : mriAcceptString} className="hidden" onChange={handleFileChange} />
 
               <AnimatePresence mode="wait">
                 {diagnosticStage === "idle" ? (
