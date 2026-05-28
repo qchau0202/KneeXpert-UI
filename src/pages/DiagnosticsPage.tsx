@@ -1187,15 +1187,6 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
                   <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">Artifact-Free</span>
                 )}
               </div>
-              <div className="flex items-center gap-0.5 bg-background rounded-md p-0.5 border overflow-x-auto max-w-[280px]">
-                {models.map(model => (
-                  <button key={model.id} onClick={() => setActiveModel(model.id)}
-                    className={cn("px-2 py-0.5 rounded text-[10px] font-medium transition-all whitespace-nowrap flex-shrink-0", activeModel === model.id ? "bg-primary text-primary-foreground" : "text-muted-foreground")}
-                  >
-                    {model.name.length > 18 ? model.name.split(" ").slice(0, 2).join(" ") : model.name}
-                  </button>
-                ))}
-              </div>
             </div>
 
             {/* Grad-CAM area */}
@@ -1250,13 +1241,6 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
               )}
             </div>
 
-            {/* Pipeline info */}
-            <div className="px-4 py-2 border-t bg-muted/20 flex-shrink-0">
-              <div className="flex items-center gap-3 text-[10px] flex-wrap text-muted-foreground">
-                <span><strong className="text-foreground/70">Model:</strong> {models.find(m => m.id === activeModel)?.name}</span>
-                <span><strong className="text-foreground/70">Acc:</strong> {models.find(m => m.id === activeModel)?.accuracy}</span>
-              </div>
-            </div>
           </div>
         </div>
 
