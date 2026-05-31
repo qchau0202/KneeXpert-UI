@@ -95,7 +95,7 @@ const estimateSecondsForPatient = (p: Patient): number => {
   return s;
 };
 
-function PatientSelector({ onConfirm }: { onConfirm: (patients: Patient[]) => void }) {
+function PatientSelector({ onConfirm, onOpenHistory }: { onConfirm: (patients: Patient[]) => void; onOpenHistory: () => void }) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [modalityFilter, setModalityFilter] = useState<string>("all");
@@ -158,6 +158,12 @@ function PatientSelector({ onConfirm }: { onConfirm: (patients: Patient[]) => vo
             <p className="text-xs text-muted-foreground mt-0.5">Select one or more patients to run AI diagnosis. Multi-modality scans are analyzed jointly for higher reliability.</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={onOpenHistory}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border bg-background text-xs font-medium hover:bg-muted transition-colors"
+            >
+              <Clock className="w-3.5 h-3.5" /> History
+            </button>
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-warning/10 text-warning text-xs font-medium">
               <AlertTriangle className="w-3.5 h-3.5" />{urgentCount} urgent
             </div>
