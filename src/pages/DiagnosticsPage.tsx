@@ -602,74 +602,46 @@ function ProcessingScreen({ patients, onComplete, onCancel }: { patients: Patien
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 overflow-auto">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <h1 className="text-xl font-semibold">AI Diagnosis in Progress</h1>
-            <button onClick={onCancel} className="text-xs text-destructive hover:underline">Cancel</button>
-          </div>
-          <p className="text-xs text-muted-foreground">Analyzing {patients.length} patient{patients.length !== 1 ? "s" : ""} ({completedCount} completed)</p>
+      <div className="max-w-xl mx-auto px-6 py-16 flex flex-col items-center">
+        {/* Centered countdown */}
+        <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-3">Analyzing</p>
+        <p className="text-6xl font-light tabular-nums tracking-tight mb-1">
+          {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, "0")}
+        </p>
+        <p className="text-xs text-muted-foreground mb-8">
+          {completedCount} of {patients.length} complete · {Math.round(overallProgress)}%
+        </p>
+
+        {/* Slim overall bar */}
+        <div className="w-full h-0.5 bg-muted rounded-full overflow-hidden mb-10">
+          <motion.div className="h-full bg-primary" animate={{ width: `${overallProgress}%` }} transition={{ duration: 0.3 }} />
         </div>
 
-        {/* Global ETA */}
-        <div className="p-4 rounded-xl border bg-card mb-5">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
-                <Timer className="w-4 h-4 text-primary" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Estimated time remaining</p>
-                <p className="text-2xl font-semibold text-mono tabular-nums">
-                  {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, "0")}
-                </p>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-xs text-muted-foreground">Overall progress</p>
-              <p className="text-2xl font-semibold text-mono tabular-nums">{Math.round(overallProgress)}%</p>
-            </div>
-          </div>
-          <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-            <motion.div className="h-full bg-primary" animate={{ width: `${overallProgress}%` }} transition={{ duration: 0.3 }} />
-          </div>
-        </div>
-
-        {/* Per-patient list */}
-        <div className="space-y-2">
+        {/* Minimal per-patient list */}
+        <div className="w-full space-y-3 mb-10">
           {patients.map(p => {
             const prog = progressMap.get(p.id);
-            const mods = getPatientModalities(p);
             return (
-              <div key={p.id} className="p-3 rounded-xl border bg-card">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    {prog?.status === "completed"
-                      ? <CheckCircle2 className="w-4 h-4 text-success" />
-                      : prog?.status === "processing"
-                      ? <Loader2 className="w-4 h-4 text-primary animate-spin" />
-                      : <Clock className="w-4 h-4 text-muted-foreground" />}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium truncate">{p.name}</p>
-                      <span className="text-[10px] text-muted-foreground font-mono">{p.id}</span>
-                      {mods.length > 1 && <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">Joint</span>}
-                    </div>
-                    <p className="text-[11px] text-muted-foreground">{prog?.stage ?? "Queued"}</p>
-                  </div>
-                  <span className="text-mono text-xs text-muted-foreground tabular-nums">{prog?.progress ?? 0}%</span>
+              <div key={p.id} className="flex items-center gap-3 text-sm">
+                <div className="w-4 flex-shrink-0">
+                  {prog?.status === "completed"
+                    ? <Check className="w-4 h-4 text-success" />
+                    : prog?.status === "processing"
+                    ? <Loader2 className="w-3.5 h-3.5 text-primary animate-spin" />
+                    : <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40 mx-auto" />}
                 </div>
-                <div className="w-full h-1 bg-muted rounded-full overflow-hidden">
-                  <motion.div
-                    className={cn("h-full rounded-full", prog?.status === "completed" ? "bg-success" : "bg-primary")}
-                    animate={{ width: `${prog?.progress ?? 0}%` }} transition={{ duration: 0.2 }}
-                  />
-                </div>
+                <span className="truncate flex-1 text-foreground/90">{p.name}</span>
+                <span className="text-[11px] text-muted-foreground truncate max-w-[180px]">
+                  {prog?.status === "queued" ? "Queued" : prog?.stage}
+                </span>
               </div>
             );
           })}
         </div>
+
+        <button onClick={onCancel} className="text-xs text-muted-foreground hover:text-destructive transition-colors">
+          Cancel
+        </button>
       </div>
     </motion.div>
   );
