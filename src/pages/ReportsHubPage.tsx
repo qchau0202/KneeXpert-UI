@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Search, FileText, Clock, AlertTriangle, CheckCircle2, Eye, Download, TrendingUp, TrendingDown, Minus, ArrowRight } from "lucide-react";
-import { mockPatients, Patient } from "@/data/patients";
+import { Patient } from "@/data/patients";
+import { usePatients } from "@/context/PatientContext";
 import { GradeBadge } from "@/components/GradeBadge";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ConfidenceGauge } from "@/components/ConfidenceGauge";
@@ -17,14 +18,6 @@ const item = { hidden: { opacity: 0, y: 4 }, visible: { opacity: 1, y: 0 } };
 
 const recentlyViewed = ["PT-8842", "PT-6105", "PT-5530"];
 
-const reportMeta: Record<string, { generatedDate: string; version: number; exported: boolean; lastViewedAgo: string }> = {
-  "PT-8842": { generatedDate: "2026-03-15", version: 3, exported: true, lastViewedAgo: "10 min ago" },
-  "PT-7291": { generatedDate: "2026-03-14", version: 1, exported: false, lastViewedAgo: "2 hrs ago" },
-  "PT-6105": { generatedDate: "2026-03-12", version: 2, exported: true, lastViewedAgo: "25 min ago" },
-  "PT-5530": { generatedDate: "2026-03-10", version: 1, exported: false, lastViewedAgo: "1 hr ago" },
-  "PT-4417": { generatedDate: "", version: 0, exported: false, lastViewedAgo: "3 hrs ago" },
-};
-
 function getProgression(patient: Patient) {
   const diagnoses = patient.timeline.filter(e => e.type === "diagnosis" && e.grade !== undefined);
   if (diagnoses.length < 2) return { label: "Insufficient data", trend: 0 };
@@ -36,35 +29,36 @@ function getProgression(patient: Patient) {
   return { label: "Stable", trend: 0 };
 }
 
-const needsReview = mockPatients.filter(p => p.status === "flagged" || (p.aiConfidence !== null && p.aiConfidence < 80));
-const pendingReports = mockPatients.filter(p => p.status === "pending");
-const completedReports = mockPatients.filter(p => p.status === "confirmed");
-
-const statusBreakdown = [
-  { name: "Confirmed", value: completedReports.length, color: "hsl(160, 84%, 39%)" },
-  { name: "Analyzed", value: mockPatients.filter(p => p.status === "analyzed").length, color: "hsl(217, 91%, 60%)" },
-  { name: "Flagged", value: mockPatients.filter(p => p.status === "flagged").length, color: "hsl(38, 92%, 50%)" },
-  { name: "Pending", value: pendingReports.length, color: "hsl(215, 16%, 70%)" },
-];
-
 export default function ReportsHubPage() {
   const navigate = useNavigate();
+  const { patients } = usePatients();
   const [search, setSearch] = useState("");
   const [tabFilter, setTabFilter] = useState<"all" | "review" | "pending" | "completed" | "recent">("all");
 
+  const needsReview = patients.filter(p => p.status === "flagged" || (p.aiConfidence !== null && p.aiConfidence < 80));
+  const pendingReports = patients.filter(p => p.status === "pending" || !p.report?.doctorConfirmed);
+  const completedReports = patients.filter(p => p.report?.doctorConfirmed);
+
+  const statusBreakdown = [
+    { name: "Confirmed", value: completedReports.length, color: "hsl(160, 84%, 39%)" },
+    { name: "Analyzed", value: patients.filter(p => p.status === "analyzed").length, color: "hsl(217, 91%, 60%)" },
+    { name: "Flagged", value: patients.filter(p => p.status === "flagged").length, color: "hsl(38, 92%, 50%)" },
+    { name: "Pending", value: pendingReports.length, color: "hsl(215, 16%, 70%)" },
+  ];
+
   const getFiltered = () => {
-    let list = mockPatients;
+    let list = patients;
     if (tabFilter === "review") list = needsReview;
     else if (tabFilter === "pending") list = pendingReports;
     else if (tabFilter === "completed") list = completedReports;
-    else if (tabFilter === "recent") list = mockPatients.filter(p => recentlyViewed.includes(p.id));
+    else if (tabFilter === "recent") list = patients.filter(p => recentlyViewed.includes(p.id));
     if (search) list = list.filter(p => p.name.toLowerCase().includes(search.toLowerCase()) || p.id.toLowerCase().includes(search.toLowerCase()));
     return list;
   };
   const filtered = getFiltered();
 
   const tabs = [
-    { id: "all" as const, label: "All", count: mockPatients.length },
+    { id: "all" as const, label: "All", count: patients.length },
     { id: "recent" as const, label: "Recent", count: recentlyViewed.length },
     { id: "review" as const, label: "Review", count: needsReview.length },
     { id: "pending" as const, label: "Pending", count: pendingReports.length },
@@ -88,7 +82,7 @@ export default function ReportsHubPage() {
         {/* Summary Cards */}
         <motion.div variants={item} className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { icon: FileText, label: "Total Reports", value: mockPatients.length, color: "bg-primary/10", iconColor: "text-primary" },
+            { icon: FileText, label: "Total Reports", value: patients.length, color: "bg-primary/10", iconColor: "text-primary" },
             { icon: AlertTriangle, label: "Needs Review", value: needsReview.length, color: "bg-warning/10", iconColor: "text-warning" },
             { icon: Clock, label: "Pending", value: pendingReports.length, color: "bg-muted", iconColor: "text-muted-foreground" },
             { icon: CheckCircle2, label: "Completed", value: completedReports.length, color: "bg-success/10", iconColor: "text-success" },
@@ -199,7 +193,7 @@ export default function ReportsHubPage() {
               </thead>
               <tbody>
                 {filtered.map(patient => {
-                  const meta = reportMeta[patient.id] || { generatedDate: "", version: 0, exported: false, lastViewedAgo: "—" };
+                  const report = patient.report;
                   const prog = getProgression(patient);
                   const isRecent = recentlyViewed.includes(patient.id);
                   return (
@@ -216,8 +210,8 @@ export default function ReportsHubPage() {
                           {isRecent && <Eye className="w-3 h-3 text-primary ml-1" />}
                         </div>
                       </td>
-                      <td className="px-4 py-3"><GradeBadge grade={patient.grade} /></td>
-                      <td className="px-4 py-3"><ConfidenceGauge value={patient.aiConfidence} /></td>
+                      <td className="px-4 py-3"><GradeBadge grade={report?.finalGrade ?? patient.grade} /></td>
+                      <td className="px-4 py-3"><ConfidenceGauge value={report?.aiConfidence ?? patient.aiConfidence} /></td>
                       <td className="px-4 py-3">
                         <span className={cn("flex items-center gap-1 text-xs font-medium", prog.trend > 0 ? "text-destructive" : prog.trend < 0 ? "text-success" : "text-muted-foreground")}>
                           {prog.trend > 0 ? <TrendingUp className="w-3 h-3" /> : prog.trend < 0 ? <TrendingDown className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
@@ -225,10 +219,13 @@ export default function ReportsHubPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3"><StatusBadge status={patient.status} /></td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground">{meta.generatedDate || "—"}</td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">
+                        {report?.updatedAt || "—"}
+                        {report?.version ? <span className="block text-[10px] text-muted-foreground/70">v{report.version}</span> : null}
+                      </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
-                          {meta.exported && <span className="text-[10px] px-1.5 py-0.5 rounded bg-success/10 text-success font-medium">Exported</span>}
+                          {report?.doctorConfirmed && <span className="text-[10px] px-1.5 py-0.5 rounded bg-success/10 text-success font-medium">Confirmed</span>}
                           <ArrowRight className="w-4 h-4 text-muted-foreground" />
                         </div>
                       </td>

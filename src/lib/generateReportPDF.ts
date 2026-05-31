@@ -105,6 +105,53 @@ export function generateReportPDF(patient: Patient): jsPDF {
   }
   y += diagBoxH + 6;
 
+  const report = patient.report;
+  if (report?.diagnosisSummary) {
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(60, 60, 60);
+    const summaryLines = doc.splitTextToSize(report.diagnosisSummary, contentWidth);
+    doc.text(summaryLines, margin, y);
+    y += summaryLines.length * 4 + 4;
+  }
+  if (report?.findings?.length) {
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(23, 37, 84);
+    doc.text("AI Findings", margin, y);
+    y += 5;
+    doc.setFont("helvetica", "normal");
+    report.findings.forEach(f => {
+      const lines = doc.splitTextToSize(`• ${f}`, contentWidth);
+      doc.text(lines, margin, y);
+      y += lines.length * 4;
+    });
+    y += 4;
+  }
+
+  const imgW = (contentWidth - 6) / 2;
+  const imgH = 45;
+  if (report?.inputImageDataUrl || report?.ensembleGradcamDataUrl) {
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(23, 37, 84);
+    doc.text("Imaging", margin, y);
+    y += 6;
+    try {
+      if (report.inputImageDataUrl?.startsWith("data:image")) {
+        doc.addImage(report.inputImageDataUrl, "JPEG", margin, y, imgW, imgH);
+        doc.setFontSize(8);
+        doc.text("Input scan", margin, y + imgH + 3);
+      }
+      if (report.ensembleGradcamDataUrl?.startsWith("data:image")) {
+        doc.addImage(report.ensembleGradcamDataUrl, "JPEG", margin + imgW + 6, y, imgW, imgH);
+        doc.text("Ensemble Grad-CAM", margin + imgW + 6, y + imgH + 3);
+      }
+      y += imgH + 10;
+    } catch {
+      y += 4;
+    }
+  }
+
   // Clinical Findings
   if (patient.grade !== null) {
     doc.setFontSize(11);

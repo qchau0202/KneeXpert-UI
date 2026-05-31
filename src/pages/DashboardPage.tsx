@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Search, Plus, TrendingUp, Users, Clock, AlertTriangle, ArrowUpRight, ArrowDownRight, Scan, FileText } from "lucide-react";
-import { mockPatients, Patient } from "@/data/patients";
+import { Patient } from "@/data/patients";
+import { usePatients } from "@/context/PatientContext";
 import { StatusBadge } from "@/components/StatusBadge";
 import { GradeBadge } from "@/components/GradeBadge";
 import { ConfidenceGauge } from "@/components/ConfidenceGauge";
@@ -53,13 +54,14 @@ const stats = [
 ];
 
 export default function DashboardPage() {
+  const { patients } = usePatients();
   const [search, setSearch] = useState("");
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showAddPatient, setShowAddPatient] = useState(false);
   const navigate = useNavigate();
 
-  const filtered = mockPatients.filter((p) => {
+  const filtered = patients.filter((p) => {
     const s = search.toLowerCase();
     const matchSearch = p.name.toLowerCase().includes(s) || p.id.toLowerCase().includes(s);
     const matchStatus = statusFilter === "all" || p.status === statusFilter;

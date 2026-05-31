@@ -18,6 +18,44 @@ export interface ScanEntry {
   preprocessing: string[];
 }
 
+export interface TimelineEntry {
+  date: string;
+  type: "scan" | "diagnosis" | "note" | "report";
+  summary: string;
+  grade?: number;
+  confidence?: number;
+}
+
+export interface ReportModelSnapshot {
+  modelId: string;
+  displayName: string;
+  grade: number;
+  confidence: number;
+  gradcamDataUrl: string | null;
+}
+
+/** One living report per patient — updated when the doctor confirms AI feedback. */
+export interface PatientReport {
+  aiGrade: number;
+  aiConfidence: number;
+  finalGrade: number;
+  modality: Modality;
+  view: string;
+  region: string;
+  inputFileName: string;
+  findings: string[];
+  diagnosisSummary: string;
+  modelUsed: string;
+  inputImageDataUrl?: string | null;
+  ensembleGradcamDataUrl?: string | null;
+  modelResults?: ReportModelSnapshot[];
+  doctorConfirmed: boolean;
+  doctorOverride: boolean;
+  overrideNotes?: string;
+  updatedAt: string;
+  version: number;
+}
+
 export interface Patient {
   id: string;
   name: string;
@@ -34,14 +72,7 @@ export interface Patient {
   modality: Modality;
   scans: ScanEntry[];
   timeline: TimelineEntry[];
-}
-
-export interface TimelineEntry {
-  date: string;
-  type: "scan" | "diagnosis" | "note" | "report";
-  summary: string;
-  grade?: number;
-  confidence?: number;
+  report?: PatientReport | null;
 }
 
 export const mockPatients: Patient[] = [

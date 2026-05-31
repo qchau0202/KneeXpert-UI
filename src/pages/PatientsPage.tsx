@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Search, Plus, SlidersHorizontal, ChevronDown, X } from "lucide-react";
-import { mockPatients, Patient } from "@/data/patients";
+import { Patient } from "@/data/patients";
+import { usePatients } from "@/context/PatientContext";
 import { StatusBadge } from "@/components/StatusBadge";
 import { GradeBadge } from "@/components/GradeBadge";
 import { ConfidenceGauge } from "@/components/ConfidenceGauge";
@@ -38,6 +39,7 @@ const PAIN_RANGES = [
 ];
 
 export default function PatientsPage() {
+  const { patients } = usePatients();
   const [search, setSearch] = useState("");
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [gradeFilter, setGradeFilter] = useState<number | null>(null);
@@ -66,7 +68,7 @@ export default function PatientsPage() {
     setModalityFilter("all"); setGenderFilter("all"); setConfidenceFilter("all");
   };
 
-  const filtered = mockPatients.filter((p) => {
+  const filtered = patients.filter((p) => {
     const s = search.toLowerCase();
     const matchSearch = p.name.toLowerCase().includes(s) || p.id.toLowerCase().includes(s);
     const matchGrade = gradeFilter === null || p.grade === gradeFilter;

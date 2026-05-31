@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Download, Printer, Send, Edit3, TrendingUp, TrendingDown, Minus, Shield, Activity, Bone, Stethoscope, Calendar, ClipboardCheck, AlertCircle, X, Eye, FileText, Loader2 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
-import { mockPatients } from "@/data/patients";
+import { usePatients } from "@/context/PatientContext";
 import { GradeBadge } from "@/components/GradeBadge";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ConfidenceGauge } from "@/components/ConfidenceGauge";
@@ -26,11 +26,14 @@ const klCriteria = [
 export default function ReportDetailPage() {
   const navigate = useNavigate();
   const { patientId } = useParams();
-  const patient = mockPatients.find((p) => p.id === patientId) || mockPatients[0];
+  const { getPatient } = usePatients();
+  const patient = getPatient(patientId ?? "") ?? getPatient("PT-8842")!;
+  const report = patient.report;
 
   const diagnosisHistory = patient.timeline
-    .filter(e => e.type === "diagnosis" && e.grade !== undefined)
+    .filter(e => e.type === "report" && e.grade !== undefined)
     .reverse()
+    .slice(0, 5)
     .map(e => ({
       date: e.date,
       grade: e.grade!,
@@ -38,35 +41,41 @@ export default function ReportDetailPage() {
       summary: e.summary,
     }));
 
-  const progressionData = diagnosisHistory.map(d => ({
-    date: new Date(d.date).toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
-    grade: d.grade,
-    confidence: d.confidence,
-  }));
+  const progressionData = diagnosisHistory.length > 0
+    ? diagnosisHistory.map(d => ({
+        date: new Date(d.date).toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
+        grade: d.grade,
+        confidence: d.confidence,
+      }))
+    : report
+      ? [{ date: new Date(report.updatedAt).toLocaleDateString("en-US", { month: "short", year: "2-digit" }), grade: report.finalGrade, confidence: report.aiConfidence }]
+      : [];
 
   const gradeChanged = diagnosisHistory.length >= 2;
   const gradeTrend = gradeChanged
     ? diagnosisHistory[diagnosisHistory.length - 1].grade - diagnosisHistory[0].grade
     : 0;
 
-  // Risk assessment radar data
+  const displayGrade = report?.finalGrade ?? patient.grade;
+  const displayConfidence = report?.aiConfidence ?? patient.aiConfidence;
+
   const riskData = [
     { factor: "Age", value: Math.min(100, (patient.age / 80) * 100) },
     { factor: "BMI", value: Math.min(100, (patient.bmi / 35) * 100) },
     { factor: "Pain", value: (patient.painLevel / 10) * 100 },
-    { factor: "Grade", value: patient.grade !== null ? (patient.grade / 4) * 100 : 0 },
+    { factor: "Grade", value: displayGrade !== null ? (displayGrade / 4) * 100 : 0 },
     { factor: "History", value: patient.history.length > 50 ? 75 : 35 },
   ];
 
-  const riskScore = patient.grade !== null
-    ? Math.round(((patient.grade / 4) * 40) + ((patient.painLevel / 10) * 25) + ((patient.bmi > 25 ? (patient.bmi - 25) / 10 : 0) * 20) + ((patient.age > 55 ? (patient.age - 55) / 25 : 0) * 15))
+  const riskScore = displayGrade !== null
+    ? Math.round(((displayGrade / 4) * 40) + ((patient.painLevel / 10) * 25) + ((patient.bmi > 25 ? (patient.bmi - 25) / 10 : 0) * 20) + ((patient.age > 55 ? (patient.age - 55) / 25 : 0) * 15))
     : null;
 
   const riskLevel = riskScore !== null
     ? riskScore >= 70 ? "High" : riskScore >= 40 ? "Moderate" : "Low"
     : "N/A";
 
-  const currentKL = klCriteria.find(k => k.grade === patient.grade);
+  const currentKL = klCriteria.find(k => k.grade === displayGrade);
 
   // PDF Preview state
   const [showPdfPreview, setShowPdfPreview] = useState(false);
@@ -179,7 +188,18 @@ export default function ReportDetailPage() {
               <div>
                 <p className="section-header mb-2">KneeXpert Clinical Diagnostic Report</p>
                 <h1 className="text-2xl font-medium tracking-tight">{patient.name}</h1>
-                <p className="text-mono text-xs text-muted-foreground mt-1">{patient.id} · Report generated {new Date().toLocaleDateString()}</p>
+                <p className="text-mono text-xs text-muted-foreground mt-1">
+                  {patient.id}
+                  {report
+                    ? ` · Report v${report.version} · Updated ${report.updatedAt}`
+                    : " · Awaiting confirmed diagnosis"}
+                </p>
+                {report && (
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Input: {report.inputFileName} · {report.modality === "xray" ? "X-Ray" : "MRI"}{report.view ? ` · ${report.view}` : ""}
+                    {report.doctorOverride && " · Doctor override applied"}
+                  </p>
+                )}
               </div>
               <StatusBadge status={patient.status} />
             </div>
@@ -271,10 +291,10 @@ export default function ReportDetailPage() {
               <p className="section-header">AI Diagnostic Summary</p>
             </div>
             <div className="flex items-center gap-4 mb-4">
-              <GradeBadge grade={patient.grade} className="!w-12 !h-12 !text-lg" />
+              <GradeBadge grade={displayGrade} className="!w-12 !h-12 !text-lg" />
               <div>
                 <p className="text-sm font-medium">
-                  {patient.grade !== null ? `Grade ${patient.grade} Osteoarthritis (${currentKL?.label})` : "Pending Analysis"}
+                  {displayGrade !== null ? `Grade ${displayGrade} Osteoarthritis (${currentKL?.label})` : "Pending Analysis"}
                 </p>
                 {patient.aiConfidence && (
                   <p className="text-xs text-muted-foreground">
@@ -287,23 +307,30 @@ export default function ReportDetailPage() {
               </div>
             </div>
 
-            {/* Narrative */}
-            <div className="bg-primary-muted rounded-lg p-4 mt-3">
+            {/* Diagnosis summary */}
+            <div className="bg-primary-muted rounded-lg p-4 mt-3 space-y-3">
               <p className="text-sm leading-relaxed">
-                {patient.grade !== null ? (
+                {report?.diagnosisSummary ? (
+                  report.diagnosisSummary
+                ) : patient.grade !== null ? (
                   <>
-                    Automated analysis of the submitted radiographic images indicates <strong>Grade {patient.grade} Osteoarthritis
-                    ({currentKL?.label})</strong> with a confidence score of <strong>{patient.aiConfidence}%</strong>.{" "}
-                    {currentKL?.description}.{" "}
-                    {patient.grade >= 3 && "Subchondral sclerosis noted in the medial compartment. "}
-                    {patient.grade >= 2 && "Cartilage thinning detected in the weight-bearing region. "}
-                    Grad-CAM activation maps highlight the areas of concern. The patient's age ({patient.age}), BMI ({patient.bmi}),
-                    and pain level ({patient.painLevel}/10) were factored into the context-aware analysis.
+                    Automated analysis indicates <strong>Grade {patient.grade} Osteoarthritis ({currentKL?.label})</strong> at{" "}
+                    <strong>{patient.aiConfidence}%</strong> confidence. {currentKL?.description}
                   </>
                 ) : (
                   "Analysis pending. Please upload imaging data to generate AI diagnostic summary."
                 )}
               </p>
+              {report?.findings && report.findings.length > 0 && (
+                <ul className="space-y-1 border-t border-primary/10 pt-3">
+                  {report.findings.map((f, i) => (
+                    <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+                      <span className="w-1 h-1 rounded-full bg-primary mt-1.5 flex-shrink-0" />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
 
             {/* KL Criteria Reference */}
@@ -411,16 +438,60 @@ export default function ReportDetailPage() {
           {/* Imaging */}
           <div className="card-clinical mb-6">
             <p className="section-header mb-3">Imaging & Grad-CAM Visualization</p>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="aspect-[4/3] rounded-lg bg-foreground/[0.03] border border-dashed flex flex-col items-center justify-center gap-2">
-                <Bone className="w-8 h-8 text-muted-foreground/50" />
-                <p className="text-xs text-muted-foreground">Original X-ray / MRI</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+              <div className="rounded-lg border overflow-hidden bg-muted/20">
+                <p className="text-[10px] font-medium px-3 py-2 border-b bg-muted/40">Input scan</p>
+                <div className="aspect-square max-h-64 flex items-center justify-center p-2">
+                  {report?.inputImageDataUrl ? (
+                    <img src={report.inputImageDataUrl} alt={report.inputFileName} className="max-h-full max-w-full object-contain" />
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                      <Bone className="w-8 h-8 opacity-40" />
+                      <p className="text-xs">{report?.inputFileName ?? "No image stored"}</p>
+                    </div>
+                  )}
+                </div>
+                {report?.inputFileName && (
+                  <p className="text-[10px] text-muted-foreground px-3 py-2 border-t truncate">{report.inputFileName}</p>
+                )}
               </div>
-              <div className="aspect-[4/3] rounded-lg bg-primary-muted/50 border border-dashed flex flex-col items-center justify-center gap-2">
-                <Activity className="w-8 h-8 text-primary/30" />
-                <p className="text-xs text-muted-foreground">Grad-CAM Heatmap Overlay</p>
+              <div className="rounded-lg border overflow-hidden bg-muted/20">
+                <p className="text-[10px] font-medium px-3 py-2 border-b bg-muted/40">Ensemble Grad-CAM</p>
+                <div className="aspect-square max-h-64 flex items-center justify-center p-2">
+                  {report?.ensembleGradcamDataUrl ? (
+                    <img src={report.ensembleGradcamDataUrl} alt="Ensemble Grad-CAM" className="max-h-full max-w-full object-contain" />
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                      <Activity className="w-8 h-8 opacity-40" />
+                      <p className="text-xs">No heatmap stored</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
+            {report?.modelResults && report.modelResults.length > 0 && (
+              <div>
+                <p className="text-xs font-medium mb-2">Per-model results ({report.modelResults.length})</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {report.modelResults.map(m => (
+                    <div key={m.modelId} className="rounded-lg border overflow-hidden">
+                      <div className="px-2 py-1.5 border-b bg-muted/30 flex items-center justify-between gap-1">
+                        <span className="text-[9px] font-medium truncate">{m.displayName}</span>
+                        <GradeBadge grade={m.grade} />
+                      </div>
+                      <div className="aspect-square bg-black/[0.03] p-1">
+                        {m.gradcamDataUrl ? (
+                          <img src={m.gradcamDataUrl} alt={m.displayName} className="w-full h-full object-contain" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-[9px] text-muted-foreground">N/A</div>
+                        )}
+                      </div>
+                      <p className="text-[9px] text-center text-muted-foreground py-1">{m.confidence.toFixed(1)}%</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Treatment Recommendations */}
