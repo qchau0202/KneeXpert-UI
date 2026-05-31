@@ -1574,7 +1574,97 @@ function DiagnosticWorkspace({ patient, onBack }: { patient: Patient; onBack: ()
 // ============================================================
 // Main Page — phase state machine
 // ============================================================
-type Phase = "select" | "confirm" | "processing" | "results" | "workspace";
+// ============================================================
+// History view — past diagnoses with inputs and outputs
+// ============================================================
+function HistoryView({ onOpen, onBack }: { onOpen: (p: Patient) => void; onBack: () => void }) {
+  const [search, setSearch] = useState("");
+  const history = useMemo(() => {
+    const items = mockPatients
+      .filter(p => p.status !== "pending" && p.scans.length > 0)
+      .flatMap(p => p.scans.map(s => ({ patient: p, scan: s })))
+      .filter(({ scan }) => scan.grade != null)
+      .sort((a, b) => b.scan.date.localeCompare(a.scan.date));
+    if (!search) return items;
+    const q = search.toLowerCase();
+    return items.filter(({ patient }) =>
+      patient.name.toLowerCase().includes(q) || patient.id.toLowerCase().includes(q),
+    );
+  }, [search]);
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 overflow-auto">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <button onClick={onBack} className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mb-2">
+              <ArrowLeft className="w-3 h-3" /> Back
+            </button>
+            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">Diagnosis History</h1>
+            <p className="text-xs text-muted-foreground mt-0.5">Past AI analyses with their inputs and outputs.</p>
+          </div>
+          <span className="text-xs text-muted-foreground">{history.length} record{history.length !== 1 ? "s" : ""}</span>
+        </div>
+
+        <div className="relative mb-5">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <input
+            value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Search by name or patient ID..."
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/30"
+          />
+        </div>
+
+        <div className="rounded-xl border bg-card divide-y">
+          {history.map(({ patient, scan }) => (
+            <div key={`${patient.id}-${scan.id}`} className="p-4 flex flex-col sm:flex-row sm:items-center gap-3 hover:bg-muted/30 transition-colors">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <p className="text-sm font-medium truncate">{patient.name}</p>
+                  <span className="text-[10px] font-mono text-muted-foreground">{patient.id}</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                  <span className="inline-flex items-center gap-1">
+                    <Calendar className="w-3 h-3" />{scan.date}
+                  </span>
+                  <span className="uppercase font-medium tracking-wide">{scan.modality === "xray" ? "X-Ray" : "MRI"}{scan.view ? ` · ${scan.view}` : ""}</span>
+                  <span className="truncate">{scan.region}</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1 truncate">
+                  Input: {scan.preprocessing.join(" → ")} · Model: {scan.modelUsed}
+                </p>
+              </div>
+              <div className="flex items-center gap-4 sm:gap-6">
+                <div className="text-right">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Grade</p>
+                  <div className="mt-0.5"><GradeBadge grade={scan.grade as number} /></div>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Confidence</p>
+                  <p className="text-sm font-semibold tabular-nums">{scan.aiConfidence?.toFixed(1)}%</p>
+                </div>
+                <button
+                  onClick={() => onOpen(patient)}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium border hover:bg-muted transition-colors"
+                >
+                  Open <ChevronRight className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+          ))}
+          {history.length === 0 && (
+            <div className="py-16 flex flex-col items-center gap-2 text-muted-foreground">
+              <Clock className="w-8 h-8" />
+              <p className="text-sm">No diagnosis history yet</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+type Phase = "select" | "history" | "confirm" | "processing" | "results" | "workspace";
 
 export default function DiagnosticsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
