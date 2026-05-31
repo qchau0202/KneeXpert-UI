@@ -724,12 +724,12 @@ function ProcessingScreen({ patients, onComplete, onCancel }: { patients: Patien
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 overflow-auto">
       <div className="max-w-xl mx-auto px-6 py-16 flex flex-col items-center">
         {/* Centered countdown */}
-        <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-3">Analyzing</p>
+        <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-3">Estimated time remaining</p>
         <p className="text-6xl font-light tabular-nums tracking-tight mb-1">
           {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, "0")}
         </p>
         <p className="text-xs text-muted-foreground mb-8">
-          {completedCount} of {patients.length} complete · {Math.round(overallProgress)}%
+          Analyzing · {completedCount} of {patients.length} complete · {Math.round(overallProgress)}%
         </p>
 
         {/* Slim overall bar */}
