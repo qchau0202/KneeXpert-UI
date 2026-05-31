@@ -771,6 +771,10 @@ function ProcessingScreen({ patients, onComplete, onCancel }: { patients: Patien
 // Results overview — combined findings + references for cohort
 // ============================================================
 function ResultsOverview({ patients, onOpenWorkspace, onBackToSelect }: { patients: Patient[]; onOpenWorkspace: (p: Patient) => void; onBackToSelect: () => void }) {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggle = (id: string) => setExpanded(prev => {
+    const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next;
+  });
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 overflow-auto">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
@@ -829,6 +833,47 @@ function ResultsOverview({ patients, onOpenWorkspace, onBackToSelect }: { patien
                 </div>
                 <div className="p-4">
                   <ClinicalInterpretation patient={p} analysis={analysis} />
+                  <button
+                    onClick={() => toggle(p.id)}
+                    className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+                  >
+                    <ChevronRight className={cn("w-3.5 h-3.5 transition-transform", expanded.has(p.id) && "rotate-90")} />
+                    {expanded.has(p.id) ? "Hide diagnostic details" : "View diagnostic details"}
+                  </button>
+                  {expanded.has(p.id) && (
+                    <div className="mt-3 rounded-lg border bg-muted/20 divide-y">
+                      {p.scans.map(s => (
+                        <div key={s.id} className="p-3 text-xs">
+                          <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-background border font-medium text-muted-foreground">
+                                {s.modality === "xray" ? "X-Ray" : "MRI"}
+                              </span>
+                              <span className="font-medium truncate">{s.region}{s.view ? ` · ${s.view}` : ""}</span>
+                              <span className="text-[10px] text-muted-foreground inline-flex items-center gap-1"><Calendar className="w-3 h-3" />{s.date}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {s.grade != null && <GradeBadge grade={s.grade} />}
+                              {s.aiConfidence != null && <span className="text-[11px] font-semibold tabular-nums">{s.aiConfidence.toFixed(1)}%</span>}
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
+                            <p className="text-muted-foreground">
+                              <span className="font-medium text-foreground/80">Input pipeline:</span> {s.preprocessing.length ? s.preprocessing.join(" → ") : "—"}
+                            </p>
+                            <p className="text-muted-foreground">
+                              <span className="font-medium text-foreground/80">Model:</span> {s.modelUsed}
+                            </p>
+                            {s.artifactRemoval?.applied && (
+                              <p className="text-muted-foreground sm:col-span-2">
+                                <span className="font-medium text-foreground/80">Artifact removal:</span> {s.artifactRemoval.method} ({s.artifactRemoval.dataset}) · Quality {s.artifactRemoval.qualityScore}/100
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             );
