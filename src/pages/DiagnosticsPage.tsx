@@ -16,6 +16,9 @@ import { DiagnosticsToolbar } from "@/components/diagnostics/DiagnosticsToolbar"
 import { MriPipelinePanel } from "@/components/diagnostics/MriPipelinePanel";
 import { KonvaImageEditor, type KonvaImageEditorHandle, type EditorTool } from "@/components/diagnostics/KonvaImageEditor";
 import { cn } from "@/lib/utils";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from "@/components/ui/dialog";
 
 // --- Constants ---
 const xrayModels = [
@@ -101,6 +104,7 @@ function PatientSelector({ onConfirm, onOpenHistory }: { onConfirm: (patients: P
   const [modalityFilter, setModalityFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<"name" | "date" | "pain">("date");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [previewPatient, setPreviewPatient] = useState<Patient | null>(null);
 
   const filtered = useMemo(() => {
     let list = [...mockPatients];
@@ -220,7 +224,7 @@ function PatientSelector({ onConfirm, onOpenHistory }: { onConfirm: (patients: P
               {filtered.length > 0 && filtered.every(p => selected.has(p.id)) ? "Deselect Filtered" : "Select Filtered"}
             </button>
             <span className="text-xs text-muted-foreground">
-              {selected.size} selected · est. {totalEta}s
+              {selected.size} selected · Estimated ~{totalEta}s
             </span>
           </div>
           <button
@@ -245,10 +249,11 @@ function PatientSelector({ onConfirm, onOpenHistory }: { onConfirm: (patients: P
             const isSelected = selected.has(p.id);
             const eta = estimateSecondsForPatient(p);
             return (
-              <button key={p.id} onClick={() => toggle(p.id)} type="button"
-                className={cn("relative p-4 rounded-xl border bg-card text-left transition-all",
+              <div key={p.id} onClick={() => toggle(p.id)} role="button" tabIndex={0}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(p.id); } }}
+                className={cn("relative p-4 rounded-xl border bg-card text-left transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring/30",
                   isSelected ? "border-primary ring-1 ring-primary/30 shadow-sm" : "hover:border-border/80 hover:shadow-sm")}>
-                <div className="absolute top-3 right-3">
+                <div className="absolute top-3 right-3 pointer-events-none">
                   <div className={cn("w-5 h-5 rounded border-2 flex items-center justify-center transition-all",
                     isSelected ? "bg-primary border-primary" : "border-muted-foreground/30")}>
                     {isSelected && <Check className="w-3 h-3 text-primary-foreground" />}
@@ -274,11 +279,18 @@ function PatientSelector({ onConfirm, onOpenHistory }: { onConfirm: (patients: P
                   </div>
                   <div className="flex items-center justify-between">
                     <span>{p.scans.length} scan{p.scans.length !== 1 ? "s" : ""}</span>
-                    <span className="flex items-center gap-1"><Timer className="w-3 h-3" />~{eta}s</span>
+                    <span className="flex items-center gap-1"><Timer className="w-3 h-3" />Est. ~{eta}s</span>
                   </div>
                   <p className="text-[10px] truncate">{p.symptoms}</p>
                 </div>
-              </button>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setPreviewPatient(p); }}
+                  className="mt-3 w-full inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg border bg-background text-[11px] font-medium text-foreground hover:bg-muted transition-colors"
+                >
+                  <Scan className="w-3 h-3" /> View inputs & history
+                </button>
+              </div>
             );
           })}
         </div>
@@ -291,7 +303,109 @@ function PatientSelector({ onConfirm, onOpenHistory }: { onConfirm: (patients: P
           </div>
         )}
       </div>
+      <PatientPreviewDialog patient={previewPatient} onClose={() => setPreviewPatient(null)} />
     </motion.div>
+  );
+}
+
+// ============================================================
+// Patient Preview Dialog — inputs (scans) + prior diagnostic history
+// ============================================================
+function PatientPreviewDialog({ patient, onClose }: { patient: Patient | null; onClose: () => void }) {
+  return (
+    <Dialog open={!!patient} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        {patient && (
+          <>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <User className="w-4 h-4 text-primary" /> {patient.name}
+                <span className="text-[10px] font-mono text-muted-foreground">{patient.id}</span>
+              </DialogTitle>
+              <DialogDescription className="text-xs">
+                {patient.age}yo · {patient.gender} · BMI {patient.bmi} · Pain {patient.painLevel}/10
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-5 mt-2">
+              {/* Clinical context */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="p-3 rounded-lg border bg-muted/30">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">History</p>
+                  <p className="text-xs leading-relaxed">{patient.history}</p>
+                </div>
+                <div className="p-3 rounded-lg border bg-muted/30">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Symptoms</p>
+                  <p className="text-xs leading-relaxed">{patient.symptoms}</p>
+                </div>
+              </div>
+
+              {/* Inputs (scans) */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    <Scan className="w-3.5 h-3.5" /> Input scans ({patient.scans.length})
+                  </h3>
+                </div>
+                <div className="rounded-xl border divide-y bg-card">
+                  {patient.scans.map((s) => (
+                    <div key={s.id} className="p-3 text-xs">
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-muted font-medium">
+                            {s.modality === "xray" ? "X-Ray" : "MRI"}
+                          </span>
+                          <span className="font-medium truncate">{s.region}{s.view ? ` · ${s.view}` : ""}</span>
+                        </div>
+                        <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                          <Calendar className="w-3 h-3" />{s.date}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        Pipeline: {s.preprocessing.length ? s.preprocessing.join(" → ") : "—"}
+                      </p>
+                      <div className="flex items-center justify-between mt-1.5">
+                        <p className="text-[11px] text-muted-foreground truncate">Model: {s.modelUsed}</p>
+                        <div className="flex items-center gap-2">
+                          {s.grade != null
+                            ? <><GradeBadge grade={s.grade} /><span className="text-[11px] font-semibold tabular-nums">{s.aiConfidence?.toFixed(1)}%</span></>
+                            : <span className="text-[10px] text-muted-foreground italic">Not analyzed</span>}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Prior diagnostic history (timeline) */}
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5 mb-2">
+                  <Clock className="w-3.5 h-3.5" /> Prior diagnostic history
+                </h3>
+                {patient.timeline.length === 0 ? (
+                  <p className="text-xs text-muted-foreground py-2">No history yet.</p>
+                ) : (
+                  <ol className="relative border-l ml-2 pl-4 space-y-3">
+                    {patient.timeline.map((t, i) => (
+                      <li key={i} className="text-xs">
+                        <span className="absolute -left-[5px] w-2 h-2 rounded-full bg-primary mt-1.5" />
+                        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                          <Calendar className="w-3 h-3" />{t.date}
+                          <span className="uppercase tracking-wider">{t.type}</span>
+                          {t.grade != null && <GradeBadge grade={t.grade} />}
+                          {t.confidence != null && <span className="tabular-nums">{t.confidence.toFixed(1)}%</span>}
+                        </div>
+                        <p className="mt-0.5 leading-relaxed">{t.summary}</p>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
