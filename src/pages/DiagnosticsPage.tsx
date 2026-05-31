@@ -1698,7 +1698,10 @@ export default function DiagnosticsPage() {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }} className="h-full flex flex-col">
       <AnimatePresence mode="wait">
         {phase === "select" && (
-          <PatientSelector key="selector" onConfirm={(patients) => { setCohort(patients); setPhase("confirm"); }} />
+          <PatientSelector key="selector" onConfirm={(patients) => { setCohort(patients); setPhase("confirm"); }} onOpenHistory={() => setPhase("history")} />
+        )}
+        {phase === "history" && (
+          <HistoryView key="history" onBack={() => setPhase("select")} onOpen={openWorkspace} />
         )}
         {phase === "confirm" && (
           <ConfirmationScreen key="confirm" patients={cohort} onCancel={() => setPhase("select")} onStart={() => setPhase("processing")} />
