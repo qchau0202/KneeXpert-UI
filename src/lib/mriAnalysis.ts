@@ -173,9 +173,12 @@ export function mriPreviewToDataUrl(base64: string | null | undefined): string |
 
 export function formatVolumeMeta(data: MriPredictResponse): string {
   const m = data.volume_meta;
-  if (!m) {
-    return `${data.volume_shape.join("×")} · ${data.slices_processed} slices processed`;
+  if (m?.shape?.length) {
+    const orient = m.orientation_axcodes?.length ? m.orientation_axcodes.join("-") : "unknown";
+    const planes = m.num_slices ?? m.shape[m.slice_axis] ?? "?";
+    return `${m.shape.join("×")} · axis ${m.slice_axis} (${planes} planes) · ${orient}`;
   }
-  const orient = m.orientation_axcodes.length ? m.orientation_axcodes.join("-") : "unknown";
-  return `${m.shape.join("×")} · axis ${m.slice_axis} (${m.num_slices} planes) · ${orient}`;
+  const shape = data.volume_shape?.length ? data.volume_shape.join("×") : "unknown shape";
+  const slices = data.slices_processed ?? "?";
+  return `${shape} · ${slices} slices processed`;
 }

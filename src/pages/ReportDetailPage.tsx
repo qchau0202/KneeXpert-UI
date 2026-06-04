@@ -469,6 +469,30 @@ export default function ReportDetailPage() {
                 </div>
               </div>
             </div>
+            {report?.modalitySnapshots && report.modalitySnapshots.length > 1 && (
+              <div className="mb-4">
+                <p className="text-xs font-medium mb-2">Multi-modality analysis</p>
+                <div className="space-y-3">
+                  {report.modalitySnapshots.map(snap => (
+                    <div key={snap.modality} className="rounded-lg border p-3 bg-muted/20">
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
+                        <span className="text-[10px] uppercase font-semibold tracking-wider">
+                          {snap.modality === "xray" ? "X-Ray" : "MRI"}
+                        </span>
+                        <GradeBadge grade={snap.grade} />
+                        <span className="text-[10px] text-muted-foreground">{snap.confidence.toFixed(1)}% · {snap.modelUsed}</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mb-1">{snap.inputFileName}</p>
+                      <ul className="space-y-0.5">
+                        {snap.findings.slice(0, 3).map((f, i) => (
+                          <li key={i} className="text-[11px] text-muted-foreground">• {f}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {report?.modelResults && report.modelResults.length > 0 && (
               <div>
                 <p className="text-xs font-medium mb-2">Per-model results ({report.modelResults.length})</p>

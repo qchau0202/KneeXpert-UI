@@ -3,7 +3,12 @@ import { mockPatients, type Patient } from "@/data/patients";
 const STORAGE_KEY = "kneexpert_patients_v1";
 
 function hydrateFromMock(stored: Patient[]): Patient[] {
-  return stored.map(p => {
+  const storedIds = new Set(stored.map(p => p.id));
+  const merged = [...stored];
+  for (const seed of mockPatients) {
+    if (!storedIds.has(seed.id)) merged.push(seed);
+  }
+  return merged.map(p => {
     const seed = mockPatients.find(m => m.id === p.id);
     if (!seed) return p;
     return {

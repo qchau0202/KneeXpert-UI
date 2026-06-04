@@ -24,9 +24,9 @@ function SidebarContent({ collapsed, onNavigate, onToggle }: { collapsed: boolea
     <div className="flex flex-col h-full">
       {/* Logo + Toggle */}
       <div className={cn("h-14 flex items-center border-b border-sidebar-border flex-shrink-0", collapsed ? "justify-center px-2" : "justify-between px-4")}>
-        <div className={cn("flex items-center gap-3", collapsed && "justify-center")}>
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center flex-shrink-0">
-            <Activity className="w-4 h-4 text-white" />
+        <div className={cn("flex items-center gap-2", collapsed && "justify-center")}>
+          <div className="rounded-lg flex items-center justify-center flex-shrink-0">
+            <img src="/public/KneeXpert.png" alt="KneeXpert" className="w-10 h-10" />
           </div>
           {!collapsed && (
             <motion.span
@@ -103,8 +103,8 @@ function SidebarContent({ collapsed, onNavigate, onToggle }: { collapsed: boolea
             className={cn("flex items-center gap-3 flex-1 min-w-0 rounded-lg p-1 -m-1 hover:bg-sidebar-accent/50 transition-colors", collapsed && "justify-center")}
             title="View Profile"
           >
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/80 to-primary flex items-center justify-center flex-shrink-0">
-              <User className="w-4 h-4 text-white" />
+            <div className="rounded-lg flex items-center justify-center flex-shrink-0">
+             <img src="/public/KneeXpert.png" alt="KneeXpert" className="w-8 h-8" />
             </div>
             {!collapsed && (
               <div className="flex-1 min-w-0 text-left">

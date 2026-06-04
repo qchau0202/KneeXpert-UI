@@ -10,7 +10,7 @@ import {
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { type Patient, type Modality } from "@/data/patients";
-import { usePatients } from "@/context/PatientContext";
+import { usePatients, type ConfirmDiagnosisPayload } from "@/context/PatientContext";
 import { predictXray, predictMri, predictMriSample, fetchBackboneHealth, type XrayPredictResponse, type MriPredictResponse } from "@/lib/diagnosticApi";
 import {
   buildGradcamViewItems,
@@ -33,6 +33,14 @@ import { MriModelEvaluationPanel } from "@/components/diagnostics/MriModelEvalua
 import { XrayModelEvaluationPanel } from "@/components/diagnostics/XrayModelEvaluationPanel";
 import { ScanImageTile } from "@/components/diagnostics/ScanImageTile";
 import { buildReportDiagnosisAssets, buildDiagnosisSummary } from "@/lib/reportSnapshot";
+import {
+  batchResultToApplyPayload,
+  runPatientBatchAnalysis,
+  type BatchPatientResult,
+} from "@/lib/batchAnalysis";
+import type { CohortFilesMap } from "@/lib/cohortFiles";
+import type { CohortInputEntry, ModalityUpload } from "@/lib/cohortTypes";
+import { gradcamToDataUrl, pngBase64ToDataUrl } from "@/lib/diagnosticApi";
 import {
   getFindingsForGrade,
   getGradeNarrative,
@@ -86,8 +94,7 @@ const emptyModalitySession = (mod: Modality): ModalitySession => ({
   selectedView: mod === "xray" ? xrayViews[0] : mriViews[0],
 });
 
-export type ModalityUpload = { fileName: string; previewUrl: string | null };
-export type CohortInputEntry = Partial<Record<Modality, ModalityUpload>>;
+export type { CohortInputEntry, ModalityUpload } from "@/lib/cohortTypes";
 
 const xrayAcceptString = ".dcm,.dicom,.jpg,.jpeg,.png";
 
@@ -617,7 +624,42 @@ interface JointAnalysis {
   agreement: "concordant" | "discordant";
 }
 
-function computeJointAnalysis(patient: Patient): JointAnalysis {
+function computeJointAnalysis(patient: Patient, batchResult?: BatchPatientResult): JointAnalysis {
+  if (batchResult) {
+    const ok = batchResult.perModality.filter(r => !r.error);
+    return {
+      perModality: ok.map(r => ({
+        modality: r.modality,
+        grade: r.grade,
+        confidence: r.confidence,
+      })),
+      finalGrade: batchResult.finalGrade,
+      finalConfidence: batchResult.finalConfidence,
+      reliabilityBoost: batchResult.reliabilityBoost,
+      agreement: batchResult.agreement,
+    };
+  }
+
+  if (patient.report?.modalitySnapshots?.length) {
+    const snaps = patient.report.modalitySnapshots;
+    const perModality: ModalityResult[] = snaps.map(s => ({
+      modality: s.modality,
+      grade: s.grade,
+      confidence: Math.round(s.confidence * 10) / 10,
+    }));
+    const finalGrade = patient.report.finalGrade;
+    const agreement = perModality.every(r => r.grade === perModality[0]?.grade) ? "concordant" : "discordant";
+    const avgConf = perModality.reduce((a, r) => a + r.confidence, 0) / perModality.length;
+    const boost = perModality.length > 1 && agreement === "concordant" ? 4.2 : perModality.length > 1 ? 1.8 : 0;
+    return {
+      perModality,
+      finalGrade,
+      finalConfidence: patient.report.aiConfidence,
+      reliabilityBoost: boost,
+      agreement: perModality.length > 1 ? agreement : "concordant",
+    };
+  }
+
   const mods = Array.from(new Set([
     ...patient.scans.map(s => s.modality),
     ...(patient.report ? [patient.report.modality] : []),
@@ -627,7 +669,8 @@ function computeJointAnalysis(patient: Patient): JointAnalysis {
     if (
       patient.report?.modality === m &&
       patient.grade != null &&
-      patient.aiConfidence != null
+      patient.aiConfidence != null &&
+      patient.status !== "pending"
     ) {
       return {
         modality: m,
@@ -635,13 +678,21 @@ function computeJointAnalysis(patient: Patient): JointAnalysis {
         confidence: Math.round(patient.aiConfidence * 10) / 10,
       };
     }
-    const scans = patient.scans.filter(s => s.modality === m);
-    const grade = Math.round(scans.reduce((a, s) => a + (s.grade ?? mockResults[m].grade), 0) / scans.length);
-    const confidence = scans.reduce((a, s) => a + (s.aiConfidence ?? mockResults[m].confidence), 0) / scans.length;
+    const scans = patient.scans.filter(s => s.modality === m && s.grade != null);
+    if (!scans.length) {
+      return { modality: m, grade: 0, confidence: 0 };
+    }
+    const grade = Math.round(scans.reduce((a, s) => a + (s.grade ?? 0), 0) / scans.length);
+    const confidence = scans.reduce((a, s) => a + (s.aiConfidence ?? 0), 0) / scans.length;
     return { modality: m, grade, confidence: Math.round(confidence * 10) / 10 };
-  });
+  }).filter(r => r.confidence > 0 || r.grade > 0);
+
+  if (!perModality.length) {
+    return { perModality: [], finalGrade: 0, finalConfidence: 0, reliabilityBoost: 0, agreement: "discordant" };
+  }
+
   const finalGrade = Math.round(perModality.reduce((a, r) => a + r.grade, 0) / perModality.length);
-  const agreement = perModality.every(r => r.grade === finalGrade) ? "concordant" : "discordant";
+  const agreement = perModality.every(r => r.grade === perModality[0].grade) ? "concordant" : "discordant";
   const avgConf = perModality.reduce((a, r) => a + r.confidence, 0) / perModality.length;
   const boost = perModality.length > 1 && agreement === "concordant" ? 4.2 : perModality.length > 1 ? 1.8 : 0;
   return {
@@ -656,7 +707,25 @@ function computeJointAnalysis(patient: Patient): JointAnalysis {
 // ============================================================
 // Clinical Interpretation + References (reused in workspace + overview)
 // ============================================================
-function ClinicalInterpretation({ patient, analysis, compact = false }: { patient: Patient; analysis: JointAnalysis; compact?: boolean }) {
+function ClinicalInterpretation({
+  patient,
+  analysis,
+  batchResult,
+  compact = false,
+}: {
+  patient: Patient;
+  analysis: JointAnalysis;
+  batchResult?: BatchPatientResult;
+  compact?: boolean;
+}) {
+  const findingsForMod = (mod: Modality, grade: number) => {
+    const batchRow = batchResult?.perModality.find(r => r.modality === mod && !r.error);
+    if (batchRow?.findings.length) return batchRow.findings;
+    const snap = patient.report?.modalitySnapshots?.find(s => s.modality === mod);
+    if (snap?.findings.length) return snap.findings;
+    if (patient.report?.modality === mod && patient.report.findings.length) return patient.report.findings;
+    return getFindingsForGrade(mod, grade);
+  };
   return (
     <div className="space-y-3">
       <div className="p-4 rounded-xl border bg-card">
@@ -683,10 +752,7 @@ function ClinicalInterpretation({ patient, analysis, compact = false }: { patien
         </p>
         <div className="space-y-3">
           {analysis.perModality.map(r => {
-            const findings =
-              patient.report?.modality === r.modality && patient.report.findings.length > 0
-                ? patient.report.findings
-                : getFindingsForGrade(r.modality, r.grade);
+            const findings = findingsForMod(r.modality, r.grade);
             return (
               <div key={r.modality} className="p-3 rounded-lg bg-muted/30 border">
                 <div className="flex items-center gap-2 mb-2 flex-wrap">
@@ -746,9 +812,10 @@ function BatchInputScreen({
 }: {
   patients: Patient[];
   onCancel: () => void;
-  onContinue: (inputs: Map<string, CohortInputEntry>) => void;
+  onContinue: (inputs: Map<string, CohortInputEntry>, files: CohortFilesMap) => void;
 }) {
   const fileRefs = useRef<Map<string, HTMLInputElement>>(new Map());
+  const filesMapRef = useRef<CohortFilesMap>(new Map());
   const [inputMap, setInputMap] = useState<Map<string, CohortInputEntry>>(() => new Map());
   const [previewPatient, setPreviewPatient] = useState<Patient | null>(null);
 
@@ -765,6 +832,8 @@ function BatchInputScreen({
       next.set(patientId, { ...existing, [modality]: { fileName: file.name, previewUrl } });
       return next;
     });
+    const fileEntry = filesMapRef.current.get(patientId) ?? {};
+    filesMapRef.current.set(patientId, { ...fileEntry, [modality]: file });
   };
 
   const clearInput = (patientId: string, modality: Modality) => {
@@ -780,6 +849,13 @@ function BatchInputScreen({
       }
       return next;
     });
+    const fileEntry = filesMapRef.current.get(patientId);
+    if (fileEntry) {
+      const updated = { ...fileEntry };
+      delete updated[modality];
+      if (Object.keys(updated).length === 0) filesMapRef.current.delete(patientId);
+      else filesMapRef.current.set(patientId, updated);
+    }
     const ref = fileRefs.current.get(cohortInputKey(patientId, modality));
     if (ref) ref.value = "";
   };
@@ -898,7 +974,7 @@ function BatchInputScreen({
             Back to selection
           </button>
           <button
-            onClick={() => onContinue(inputMap)}
+            onClick={() => onContinue(new Map(inputMap), new Map(filesMapRef.current))}
             disabled={!allReady}
             className={cn(
               "inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-colors",
@@ -1029,67 +1105,239 @@ function ConfirmationScreen({
 // ============================================================
 // Processing screen — live progress + ETA countdown
 // ============================================================
-interface PatientProgress { patientId: string; progress: number; stage: string; status: "queued" | "processing" | "completed"; }
+interface PatientProgress { patientId: string; progress: number; stage: string; status: "queued" | "processing" | "completed" | "error"; }
 
-function ProcessingScreen({ patients, onComplete, onCancel }: { patients: Patient[]; onComplete: () => void; onCancel: () => void }) {
+function BatchModalityDetail({ row }: { row: import("@/lib/batchAnalysis").BatchModalityResult }) {
+  if (row.error) {
+    return (
+      <div className="p-3 text-xs border-t bg-destructive/5">
+        <p className="font-medium text-destructive">{row.modality === "xray" ? "X-Ray" : "MRI"} analysis failed</p>
+        <p className="text-[11px] text-muted-foreground mt-1">{row.error}</p>
+      </div>
+    );
+  }
+
+  const previewUrl = row.modality === "xray"
+    ? (row.xrayData ? gradcamToDataUrl(row.xrayData.gradcam_base64) : row.reportAssets?.ensembleGradcamDataUrl)
+    : (row.mriData?.preview?.gradcam_base64
+      ? gradcamToDataUrl(row.mriData.preview.gradcam_base64)
+      : row.reportAssets?.ensembleGradcamDataUrl);
+
+  const inputUrl = row.reportAssets?.inputImageDataUrl
+    ?? (row.modality === "mri" && row.mriData?.preview?.cleaned_base64
+      ? pngBase64ToDataUrl(row.mriData.preview.cleaned_base64)
+      : null);
+
+  const modelRows = row.modality === "xray" && row.xrayData
+    ? buildXrayModelRows(row.xrayData)
+    : row.modality === "mri" && row.mriData
+      ? buildMriModelRows(row.mriData)
+      : [];
+
+  return (
+    <div className="p-4 border-t space-y-3">
+      <div className="flex items-start gap-3 flex-wrap">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap mb-1">
+            <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-background border font-semibold">
+              {row.modality === "xray" ? "X-Ray ensemble" : "MRI pipeline"}
+            </span>
+            <GradeBadge grade={row.grade} />
+            <ConfidenceGauge value={row.confidence} />
+            <span className="text-[10px] text-muted-foreground">{row.modelUsed}</span>
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            {row.region}{row.view ? ` · ${row.view}` : ""} · {row.inputFileName}
+          </p>
+          {row.mriData && (
+            <p className="text-[10px] text-muted-foreground mt-1">{formatVolumeMeta(row.mriData)}</p>
+          )}
+          {row.mriData?.category_feedback?.length ? (
+            <ul className="mt-2 space-y-0.5">
+              {row.mriData.category_feedback.map((f, i) => (
+                <li key={i} className="text-[11px] text-muted-foreground flex gap-1.5">
+                  <FlaskConical className="w-3 h-3 text-primary flex-shrink-0 mt-0.5" />{f}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <ul className="mt-2 space-y-0.5">
+              {row.findings.slice(0, 4).map((f, i) => (
+                <li key={i} className="text-[11px] text-muted-foreground">• {f}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <div className="flex gap-2 flex-shrink-0">
+          {inputUrl && (
+            <div className="w-20 h-20 rounded-lg border overflow-hidden bg-muted">
+              <img src={inputUrl} alt="Input" className="w-full h-full object-cover" />
+            </div>
+          )}
+          {previewUrl && (
+            <div className="w-20 h-20 rounded-lg border overflow-hidden bg-muted">
+              <img src={previewUrl} alt="Grad-CAM" className="w-full h-full object-cover" />
+            </div>
+          )}
+        </div>
+      </div>
+      {modelRows.length > 0 && (
+        <div className="rounded-lg border overflow-hidden">
+          <div className="px-3 py-2 bg-muted/40 border-b text-[10px] uppercase font-semibold tracking-wider text-muted-foreground">
+            Model outputs
+          </div>
+          <div className="divide-y">
+            {modelRows.map(m => (
+              <div key={m.id} className="px-3 py-2 flex items-center justify-between gap-2 text-xs">
+                <span className="font-medium truncate">{m.name}</span>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {m.gradeDisplay ?? (m.grade != null ? <GradeBadge grade={m.grade} /> : null)}
+                  <span className="text-[11px] tabular-nums text-muted-foreground">
+                    {m.confidenceDisplay ?? `${m.confidence.toFixed(1)}%`}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {row.modality === "xray" && row.xrayData && !row.xrayData.is_reliable && (
+        <p className="text-[11px] text-warning flex items-center gap-1">
+          <AlertTriangle className="w-3.5 h-3.5" /> Low ensemble agreement — review individual models.
+        </p>
+      )}
+      {row.modality === "mri" && row.mriData && !row.mriData.is_reliable && (
+        <p className="text-[11px] text-warning flex items-center gap-1">
+          <AlertTriangle className="w-3.5 h-3.5" /> Low DeiT-S confidence — review multi-label categories.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function ProcessingScreen({
+  patients,
+  cohortInputs,
+  cohortFiles,
+  applyAnalysisResult,
+  onComplete,
+  onCancel,
+}: {
+  patients: Patient[];
+  cohortInputs: Map<string, CohortInputEntry>;
+  cohortFiles: CohortFilesMap;
+  applyAnalysisResult: ReturnType<typeof usePatients>["applyAnalysisResult"];
+  onComplete: (results: Map<string, BatchPatientResult>) => void;
+  onCancel: () => void;
+}) {
   const totalEta = useMemo(() => patients.reduce((s, p) => s + estimateSecondsForPatient(p), 0), [patients]);
   const [remaining, setRemaining] = useState(totalEta);
   const [progressMap, setProgressMap] = useState<Map<string, PatientProgress>>(() => {
     const m = new Map<string, PatientProgress>();
-    patients.forEach((p, i) => m.set(p.id, { patientId: p.id, progress: 0, stage: i === 0 ? "Uploading scans..." : "Queued", status: i === 0 ? "processing" : "queued" }));
+    patients.forEach((p, i) => m.set(p.id, { patientId: p.id, progress: 0, stage: i === 0 ? "Starting…" : "Queued", status: i === 0 ? "processing" : "queued" }));
     return m;
   });
+  const [fatalError, setFatalError] = useState<string | null>(null);
 
-  // Countdown timer
   useEffect(() => {
     const t = setInterval(() => setRemaining(r => Math.max(0, r - 1)), 1000);
     return () => clearInterval(t);
   }, []);
 
-  // Sequential processing simulation
   useEffect(() => {
     let cancelled = false;
-    const stages = ["Uploading scans...", "Pre-processing (CLAHE + denoise)", "Artifact removal (MACS-NET)", "Running AI ensemble inference", "Generating Grad-CAM heatmap", "Cross-modality fusion"];
+    const results = new Map<string, BatchPatientResult>();
+
     const run = async () => {
       for (let i = 0; i < patients.length; i++) {
         if (cancelled) return;
         const p = patients[i];
-        const eta = estimateSecondsForPatient(p) * 1000;
-        const tick = eta / 100;
-        for (let prog = 0; prog <= 100; prog += 2) {
-          if (cancelled) return;
-          const stageIdx = Math.min(stages.length - 1, Math.floor(prog / (100 / stages.length)));
-          setProgressMap(prev => {
-            const next = new Map(prev);
-            next.set(p.id, { patientId: p.id, progress: prog, stage: stages[stageIdx], status: "processing" });
-            return next;
-          });
-          await new Promise(r => setTimeout(r, tick * 2));
-        }
+        const mods = getPatientModalities(p);
+        const files = cohortFiles.get(p.id);
+        const region = p.scans[0]?.region ?? "Knee";
+        const views: Partial<Record<Modality, string>> = {
+          xray: p.scans.find(s => s.modality === "xray")?.view ?? "AP",
+          mri: p.scans.find(s => s.modality === "mri")?.view ?? "Axial",
+        };
+
         setProgressMap(prev => {
           const next = new Map(prev);
-          next.set(p.id, { patientId: p.id, progress: 100, stage: "Complete", status: "completed" });
-          if (i + 1 < patients.length) {
-            const np = patients[i + 1];
-            next.set(np.id, { patientId: np.id, progress: 0, stage: "Uploading scans...", status: "processing" });
-          }
+          next.set(p.id, { patientId: p.id, progress: 5, stage: "Starting analysis…", status: "processing" });
           return next;
         });
+
+        try {
+          const result = await runPatientBatchAnalysis(
+            p.id,
+            mods,
+            cohortInputs.get(p.id),
+            files,
+            region,
+            views,
+            {},
+            stage => {
+              if (cancelled) return;
+              setProgressMap(prev => {
+                const next = new Map(prev);
+                const cur = next.get(p.id);
+                next.set(p.id, {
+                  patientId: p.id,
+                  progress: Math.min(95, (cur?.progress ?? 5) + 8),
+                  stage,
+                  status: "processing",
+                });
+                return next;
+              });
+            },
+          );
+
+          results.set(p.id, result);
+          const payload = batchResultToApplyPayload(result);
+          if (payload) applyAnalysisResult(p.id, payload);
+
+          setProgressMap(prev => {
+            const next = new Map(prev);
+            next.set(p.id, {
+              patientId: p.id,
+              progress: 100,
+              stage: result.perModality.some(r => r.error) ? "Completed with warnings" : "Complete",
+              status: result.perModality.every(r => r.error) ? "error" : "completed",
+            });
+            if (i + 1 < patients.length) {
+              const np = patients[i + 1];
+              next.set(np.id, { patientId: np.id, progress: 0, stage: "Starting…", status: "processing" });
+            }
+            return next;
+          });
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : "Analysis failed";
+          setProgressMap(prev => {
+            const next = new Map(prev);
+            next.set(p.id, { patientId: p.id, progress: 100, stage: msg, status: "error" });
+            return next;
+          });
+          if (i === 0 && patients.length === 1) setFatalError(msg);
+        }
       }
-      if (!cancelled) setTimeout(onComplete, 600);
+
+      if (!cancelled) {
+        setTimeout(() => onComplete(results), 400);
+      }
     };
+
     run();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const completedCount = Array.from(progressMap.values()).filter(p => p.status === "completed").length;
-  const overallProgress = (Array.from(progressMap.values()).reduce((s, p) => s + p.progress, 0)) / patients.length;
+  const overallProgress = patients.length
+    ? Array.from(progressMap.values()).reduce((s, p) => s + p.progress, 0) / patients.length
+    : 0;
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 overflow-auto">
+    <motion.div initial={false} animate={{ opacity: 1 }} className="flex-1 min-h-[calc(100dvh-4rem)] overflow-auto">
       <div className="max-w-xl mx-auto px-6 py-16 flex flex-col items-center">
-        {/* Centered countdown */}
         <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-3">Estimated time remaining</p>
         <p className="text-6xl font-light tabular-nums tracking-tight mb-1">
           {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, "0")}
@@ -1098,12 +1346,10 @@ function ProcessingScreen({ patients, onComplete, onCancel }: { patients: Patien
           Analyzing · {completedCount} of {patients.length} complete · {Math.round(overallProgress)}%
         </p>
 
-        {/* Slim overall bar */}
         <div className="w-full h-0.5 bg-muted rounded-full overflow-hidden mb-10">
           <motion.div className="h-full bg-primary" animate={{ width: `${overallProgress}%` }} transition={{ duration: 0.3 }} />
         </div>
 
-        {/* Minimal per-patient list */}
         <div className="w-full space-y-3 mb-10">
           {patients.map(p => {
             const prog = progressMap.get(p.id);
@@ -1112,18 +1358,24 @@ function ProcessingScreen({ patients, onComplete, onCancel }: { patients: Patien
                 <div className="w-4 flex-shrink-0">
                   {prog?.status === "completed"
                     ? <Check className="w-4 h-4 text-success" />
+                    : prog?.status === "error"
+                    ? <AlertTriangle className="w-4 h-4 text-destructive" />
                     : prog?.status === "processing"
                     ? <Loader2 className="w-3.5 h-3.5 text-primary animate-spin" />
                     : <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40 mx-auto" />}
                 </div>
                 <span className="truncate flex-1 text-foreground/90">{p.name}</span>
-                <span className="text-[11px] text-muted-foreground truncate max-w-[180px]">
+                <span className="text-[11px] text-muted-foreground truncate max-w-[200px]">
                   {prog?.status === "queued" ? "Queued" : prog?.stage}
                 </span>
               </div>
             );
           })}
         </div>
+
+        {fatalError && (
+          <p className="text-xs text-destructive mb-4 text-center max-w-sm">{fatalError}</p>
+        )}
 
         <button onClick={onCancel} className="text-xs text-muted-foreground hover:text-destructive transition-colors">
           Cancel
@@ -1134,44 +1386,268 @@ function ProcessingScreen({ patients, onComplete, onCancel }: { patients: Patien
 }
 
 // ============================================================
+// Batch review — doctor confirm or override after cohort analysis
+// ============================================================
+type BatchReviewStatus = "pending" | "confirmed" | "overridden";
+
+type BatchReviewRecord = {
+  status: BatchReviewStatus;
+  finalGrade?: number;
+};
+
+function buildBatchConfirmPayload(
+  p: Patient,
+  batchResult: BatchPatientResult | undefined,
+  cohortInput: CohortInputEntry | undefined,
+  grade: number,
+  analysis: JointAnalysis,
+  doctorOverride = false,
+  overrideNotes?: string,
+): ConfirmDiagnosisPayload {
+  const payload = batchResult ? batchResultToApplyPayload(batchResult) : null;
+  const mods = getPatientModalities(p);
+  const primaryMod = payload?.modality ?? mods[0] ?? p.modality;
+  const inputNames = mods.map(m => cohortInput?.[m]?.fileName).filter(Boolean).join(", ");
+  const scan = p.scans.find(s => s.modality === primaryMod) ?? p.scans[0];
+  const modelUsed = payload?.modelUsed ?? (primaryMod === "xray" ? "Ensemble (8 models)" : "MACS-Net + DeiT-S");
+  const findings = doctorOverride
+    ? getFindingsForGrade(primaryMod, grade)
+    : (payload?.findings ?? getFindingsForGrade(primaryMod, grade));
+  const aiConfidence = analysis.finalConfidence;
+  const diagnosisSummary = doctorOverride
+    ? buildDiagnosisSummary(grade, aiConfidence, findings, modelUsed)
+    : (payload?.diagnosisSummary ?? buildDiagnosisSummary(grade, aiConfidence, findings, modelUsed));
+
+  return {
+    grade,
+    aiConfidence,
+    findings,
+    diagnosisSummary,
+    modality: primaryMod,
+    view: payload?.view ?? scan?.view ?? "",
+    region: payload?.region ?? scan?.region ?? "Knee",
+    inputFileName: payload?.inputFileName ?? (inputNames || `${p.name} scan`),
+    modelUsed,
+    inputImageDataUrl: payload?.inputImageDataUrl,
+    ensembleGradcamDataUrl: payload?.ensembleGradcamDataUrl,
+    modelResults: payload?.modelResults,
+    modalitySnapshots: payload?.modalitySnapshots,
+    doctorOverride,
+    overrideNotes,
+  };
+}
+
+function BatchPatientReviewPanel({
+  patient,
+  batchResult,
+  cohortInput,
+  analysis,
+  review,
+  onReviewComplete,
+}: {
+  patient: Patient;
+  batchResult?: BatchPatientResult;
+  cohortInput?: CohortInputEntry;
+  analysis: JointAnalysis;
+  review: BatchReviewRecord;
+  onReviewComplete: (record: BatchReviewRecord) => void;
+}) {
+  const { confirmDiagnosis } = usePatients();
+  const [showOverride, setShowOverride] = useState(false);
+  const [overrideGrade, setOverrideGrade] = useState<number>(analysis.finalGrade);
+  const [overrideNotes, setOverrideNotes] = useState("");
+
+  const submitReview = (grade: number, doctorOverride: boolean, notes?: string) => {
+    confirmDiagnosis(
+      patient.id,
+      buildBatchConfirmPayload(patient, batchResult, cohortInput, grade, analysis, doctorOverride, notes),
+    );
+    onReviewComplete({
+      status: doctorOverride ? "overridden" : "confirmed",
+      finalGrade: grade,
+    });
+    setShowOverride(false);
+    toast.success(doctorOverride ? "Override saved" : "Diagnosis confirmed", {
+      description: doctorOverride
+        ? `${patient.name} — report updated to KL Grade ${grade} (doctor override).`
+        : `${patient.name} — AI diagnosis confirmed at KL Grade ${grade}.`,
+    });
+  };
+
+  if (review.status === "confirmed") {
+    return (
+      <div className="mt-4 p-4 rounded-xl border border-success/30 bg-success/5 flex items-start gap-3">
+        <CheckCircle2 className="w-5 h-5 text-success flex-shrink-0 mt-0.5" />
+        <div>
+          <p className="text-sm font-medium text-success">Diagnosis confirmed</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            AI grade KL {review.finalGrade} accepted · report saved for {patient.name}.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (review.status === "overridden") {
+    return (
+      <div className="mt-4 p-4 rounded-xl border border-warning/30 bg-warning/5 flex items-start gap-3">
+        <AlertTriangle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
+        <div>
+          <p className="text-sm font-medium text-warning">Doctor override applied</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Final grade KL {review.finalGrade} · report updated for {patient.name}.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-4 rounded-xl border border-primary/25 bg-primary/5 overflow-hidden">
+      <div className="p-4 flex flex-col sm:flex-row sm:items-center gap-4">
+        <div className="flex items-start gap-3 flex-1 min-w-0">
+          <ShieldCheck className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium">Physician review required</p>
+            <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+              AI recommends <span className="font-medium text-foreground">KL Grade {analysis.finalGrade}</span> at{" "}
+              {analysis.finalConfidence}% confidence. Confirm if you agree, or override with your clinical grade.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <button
+            type="button"
+            onClick={() => submitReview(analysis.finalGrade, false)}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-success text-success-foreground text-xs font-medium hover:bg-success/90 transition-colors"
+          >
+            <Check className="w-3.5 h-3.5" /> Confirm AI diagnosis
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setOverrideGrade(analysis.finalGrade);
+              setShowOverride(v => !v);
+            }}
+            className={cn(
+              "inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border text-xs font-medium transition-colors",
+              showOverride
+                ? "bg-warning/10 border-warning text-warning"
+                : "text-warning hover:bg-warning hover:text-warning-foreground",
+            )}
+          >
+            <X className="w-3.5 h-3.5" /> Override
+          </button>
+        </div>
+      </div>
+      <AnimatePresence>
+        {showOverride && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="border-t border-warning/20 bg-warning/5 overflow-hidden"
+          >
+            <div className="p-4">
+              <p className="text-xs font-medium mb-3">Manual grade override</p>
+              <div className="flex items-center gap-2 mb-3 flex-wrap">
+                <span className="text-xs text-muted-foreground">Your grade:</span>
+                {[0, 1, 2, 3, 4].map(g => (
+                  <button
+                    key={g}
+                    type="button"
+                    onClick={() => setOverrideGrade(g)}
+                    className={cn(
+                      "w-9 h-9 rounded-lg text-xs font-medium transition-all",
+                      overrideGrade === g ? "bg-primary text-primary-foreground" : "bg-background border text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {g}
+                  </button>
+                ))}
+              </div>
+              <textarea
+                value={overrideNotes}
+                onChange={e => setOverrideNotes(e.target.value)}
+                placeholder="Clinical reasoning for override (optional but recommended)…"
+                className="w-full px-3 py-2 rounded-lg border bg-background text-sm resize-none h-16 focus:outline-none focus:ring-2 focus:ring-ring/20"
+              />
+              <div className="flex justify-end gap-2 mt-3">
+                <button
+                  type="button"
+                  onClick={() => setShowOverride(false)}
+                  className="px-3 py-1.5 text-xs rounded-lg border hover:bg-muted transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => submitReview(overrideGrade, true, overrideNotes.trim() || undefined)}
+                  className="px-3 py-1.5 text-xs rounded-lg bg-warning text-warning-foreground hover:bg-warning/90 transition-colors"
+                >
+                  Submit override
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ============================================================
 // Results overview — combined findings + references for cohort
 // ============================================================
-function ResultsOverview({ patients, cohortInputs, onOpenWorkspace, onBackToSelect }: { patients: Patient[]; cohortInputs: Map<string, CohortInputEntry>; onOpenWorkspace: (p: Patient) => void; onBackToSelect: () => void }) {
-  const { confirmDiagnosis } = usePatients();
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+function ResultsOverview({
+  patients,
+  cohortInputs,
+  cohortResults,
+  onOpenWorkspace,
+  onBackToSelect,
+}: {
+  patients: Patient[];
+  cohortInputs: Map<string, CohortInputEntry>;
+  cohortResults: Map<string, BatchPatientResult>;
+  onOpenWorkspace: (p: Patient) => void;
+  onBackToSelect: () => void;
+}) {
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(patients.map(p => p.id)));
   const [previewPatient, setPreviewPatient] = useState<Patient | null>(null);
-  const [confirmedIds, setConfirmedIds] = useState<Set<string>>(() =>
-    new Set(patients.filter(p => p.report?.doctorConfirmed).map(p => p.id)),
-  );
+  const [reviewByPatient, setReviewByPatient] = useState<Map<string, BatchReviewRecord>>(() => {
+    const m = new Map<string, BatchReviewRecord>();
+    patients.forEach(p => m.set(p.id, { status: "pending" }));
+    return m;
+  });
+
+  const reviewedCount = patients.filter(p => reviewByPatient.get(p.id)?.status !== "pending").length;
+  const pendingCount = patients.length - reviewedCount;
+
   const toggle = (id: string) => setExpanded(prev => {
     const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next;
   });
-  const handleBatchAgree = (p: Patient) => {
-    const analysis = computeJointAnalysis(p);
-    const input = cohortInputs.get(p.id);
-    const mods = getPatientModalities(p);
-    const primaryMod = mods[0] ?? p.modality;
-    const inputNames = mods
-      .map(m => input?.[m]?.fileName)
-      .filter(Boolean)
-      .join(", ");
-    const findings = getFindingsForGrade(primaryMod, analysis.finalGrade);
-    const scan = p.scans.find(s => s.modality === primaryMod) ?? p.scans[0];
-    const modelUsed = primaryMod === "xray" ? "Ensemble (8 models)" : "MACS-Net + DEiT-S";
-    confirmDiagnosis(p.id, {
-      grade: analysis.finalGrade,
-      aiConfidence: analysis.finalConfidence,
-      findings,
-      diagnosisSummary: buildDiagnosisSummary(analysis.finalGrade, analysis.finalConfidence, findings, modelUsed),
-      modality: primaryMod,
-      view: scan?.view ?? "",
-      region: scan?.region ?? "Knee",
-      inputFileName: inputNames || `${p.name} scan`,
-      modelUsed,
-    });
-    setConfirmedIds(prev => new Set(prev).add(p.id));
-    toast.success("Report updated", { description: `${p.name}'s report has been confirmed.` });
+
+  const markReviewed = (patientId: string, record: BatchReviewRecord) => {
+    setReviewByPatient(prev => new Map(prev).set(patientId, record));
   };
+
+  // Sync if doctor confirmed/overrode from workspace and returned to batch results
+  useEffect(() => {
+    setReviewByPatient(prev => {
+      const next = new Map(prev);
+      let changed = false;
+      for (const p of patients) {
+        if (p.report?.doctorConfirmed && next.get(p.id)?.status === "pending") {
+          next.set(p.id, {
+            status: p.report.doctorOverride ? "overridden" : "confirmed",
+            finalGrade: p.report.finalGrade,
+          });
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [patients]);
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 overflow-auto">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
@@ -1181,21 +1657,61 @@ function ResultsOverview({ patients, cohortInputs, onOpenWorkspace, onBackToSele
               <CheckCircle2 className="w-5 h-5 text-success" />
             </div>
             <div>
-              <h1 className="text-xl font-semibold">Diagnosis Complete</h1>
-              <p className="text-xs text-muted-foreground">{patients.length} patient{patients.length !== 1 ? "s" : ""} analyzed — review and agree to update each patient&apos;s report.</p>
+              <h1 className="text-xl font-semibold">Review AI Diagnoses</h1>
+              <p className="text-xs text-muted-foreground">
+                {patients.length} patient{patients.length !== 1 ? "s" : ""} analyzed — confirm or override each diagnosis before closing the batch.
+              </p>
             </div>
           </div>
-          <button onClick={onBackToSelect} className="px-3 py-1.5 rounded-lg border text-xs font-medium hover:bg-muted transition-colors">
-            New cohort
-          </button>
+          <div className="flex items-center gap-2">
+            <span className={cn(
+              "text-xs px-2.5 py-1 rounded-full font-medium",
+              pendingCount > 0 ? "bg-warning/10 text-warning" : "bg-success/10 text-success",
+            )}>
+              {reviewedCount}/{patients.length} reviewed
+            </span>
+            <button onClick={onBackToSelect} className="px-3 py-1.5 rounded-lg border text-xs font-medium hover:bg-muted transition-colors">
+              New cohort
+            </button>
+          </div>
         </div>
+
+        {pendingCount > 0 && (
+          <div className="mb-6 p-4 rounded-xl border border-primary/20 bg-primary/5 flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium">Action required</p>
+              <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                AI analysis is complete. Review findings for each patient below, then <span className="font-medium text-foreground">Confirm AI diagnosis</span> or{" "}
+                <span className="font-medium text-foreground">Override</span> with your clinical grade. Reports are only finalized after your decision.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {pendingCount === 0 && patients.length > 0 && (
+          <div className="mb-6 p-4 rounded-xl border border-success/30 bg-success/5 flex items-start gap-3">
+            <CheckCircle2 className="w-5 h-5 text-success flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-success">All patients reviewed</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Every report in this batch has been confirmed or overridden.</p>
+            </div>
+          </div>
+        )}
 
         <div className="space-y-5">
           {patients.map(p => {
-            const analysis = computeJointAnalysis(p);
+            const batchResult = cohortResults.get(p.id);
+            const analysis = computeJointAnalysis(p, batchResult);
             const mods = getPatientModalities(p);
+            const review = reviewByPatient.get(p.id) ?? { status: "pending" as const };
             return (
-              <div key={p.id} className="border rounded-xl overflow-hidden">
+              <div key={p.id} className={cn(
+                "border rounded-xl overflow-hidden",
+                review.status === "pending" && "border-primary/20",
+                review.status === "confirmed" && "border-success/30",
+                review.status === "overridden" && "border-warning/30",
+              )}>
                 <div className="p-4 bg-muted/30 border-b flex items-center gap-3 flex-wrap">
                   <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                     <User className="w-5 h-5 text-primary" />
@@ -1205,6 +1721,15 @@ function ResultsOverview({ patients, cohortInputs, onOpenWorkspace, onBackToSele
                       <p className="text-sm font-medium">{p.name}</p>
                       <span className="text-[10px] text-muted-foreground font-mono">{p.id}</span>
                       <span className="text-[10px] text-muted-foreground">{p.age}yo · {p.gender} · BMI {p.bmi}</span>
+                      {review.status === "pending" && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-warning/10 text-warning font-medium">Pending review</span>
+                      )}
+                      {review.status === "confirmed" && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-success/10 text-success font-medium">Confirmed</span>
+                      )}
+                      {review.status === "overridden" && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-warning/10 text-warning font-medium">Overridden</span>
+                      )}
                     </div>
                     <div className="flex items-center gap-1 mt-1">
                       {mods.includes("xray") && <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-background border font-medium text-muted-foreground">X-Ray</span>}
@@ -1227,18 +1752,6 @@ function ResultsOverview({ patients, cohortInputs, onOpenWorkspace, onBackToSele
                       <Scan className="w-3.5 h-3.5" /> View inputs
                     </button>
                     <button
-                      onClick={() => handleBatchAgree(p)}
-                      disabled={confirmedIds.has(p.id)}
-                      className={cn(
-                        "inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors",
-                        confirmedIds.has(p.id)
-                          ? "border bg-muted text-muted-foreground cursor-not-allowed"
-                          : "border text-success hover:bg-success hover:text-success-foreground"
-                      )}
-                    >
-                      <Check className="w-3.5 h-3.5" />{confirmedIds.has(p.id) ? "Agreed" : "Agree"}
-                    </button>
-                    <button
                       onClick={() => onOpenWorkspace(p)}
                       className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
                     >
@@ -1247,59 +1760,48 @@ function ResultsOverview({ patients, cohortInputs, onOpenWorkspace, onBackToSele
                   </div>
                 </div>
                 <div className="p-4">
-                  <ClinicalInterpretation patient={p} analysis={analysis} />
+                  <ClinicalInterpretation patient={p} analysis={analysis} batchResult={batchResult} />
+                  <BatchPatientReviewPanel
+                    patient={p}
+                    batchResult={batchResult}
+                    cohortInput={cohortInputs.get(p.id)}
+                    analysis={analysis}
+                    review={review}
+                    onReviewComplete={record => markReviewed(p.id, record)}
+                  />
                   <button
                     onClick={() => toggle(p.id)}
                     className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
                   >
                     <ChevronRight className={cn("w-3.5 h-3.5 transition-transform", expanded.has(p.id) && "rotate-90")} />
-                    {expanded.has(p.id) ? "Hide diagnostic details" : "View diagnostic details"}
+                    {expanded.has(p.id) ? "Hide model outputs & inputs" : "View model outputs & inputs"}
                   </button>
                   {expanded.has(p.id) && (
-                    <div className="mt-3 rounded-lg border bg-muted/20 divide-y">
+                    <div className="mt-3 rounded-lg border bg-muted/20 overflow-hidden">
+                      {batchResult?.perModality.map(row => (
+                        <BatchModalityDetail key={row.modality} row={row} />
+                      ))}
+                      {!batchResult && (
+                        <div className="p-3 text-xs text-muted-foreground">No batch API results in session — re-run analysis.</div>
+                      )}
                       {cohortInputs.get(p.id) && getPatientModalities(p).map(mod => {
                         const upload = cohortInputs.get(p.id)?.[mod];
                         if (!upload) return null;
                         return (
-                          <div key={mod} className="p-3 text-xs flex items-center gap-3">
+                          <div key={mod} className="p-3 text-xs flex items-center gap-3 border-t">
                             <Upload className="w-4 h-4 text-primary flex-shrink-0" />
-                            <div>
+                            <div className="flex-1 min-w-0">
                               <p className="font-medium">{mod === "xray" ? "X-Ray" : "MRI"} uploaded input</p>
-                              <p className="text-[11px] text-muted-foreground">{upload.fileName}</p>
+                              <p className="text-[11px] text-muted-foreground truncate">{upload.fileName}</p>
                             </div>
+                            {upload.previewUrl && (
+                              <div className="w-12 h-12 rounded border overflow-hidden flex-shrink-0">
+                                <img src={upload.previewUrl} alt="" className="w-full h-full object-cover" />
+                              </div>
+                            )}
                           </div>
                         );
                       })}
-                      {p.scans.map(s => (
-                        <div key={s.id} className="p-3 text-xs">
-                          <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-background border font-medium text-muted-foreground">
-                                {s.modality === "xray" ? "X-Ray" : "MRI"}
-                              </span>
-                              <span className="font-medium truncate">{s.region}{s.view ? ` · ${s.view}` : ""}</span>
-                              <span className="text-[10px] text-muted-foreground inline-flex items-center gap-1"><Calendar className="w-3 h-3" />{s.date}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {s.grade != null && <GradeBadge grade={s.grade} />}
-                              {s.aiConfidence != null && <span className="text-[11px] font-semibold tabular-nums">{s.aiConfidence.toFixed(1)}%</span>}
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
-                            <p className="text-muted-foreground">
-                              <span className="font-medium text-foreground/80">Input pipeline:</span> {s.preprocessing.length ? s.preprocessing.join(" → ") : "—"}
-                            </p>
-                            <p className="text-muted-foreground">
-                              <span className="font-medium text-foreground/80">Model:</span> {s.modelUsed}
-                            </p>
-                            {s.artifactRemoval?.applied && (
-                              <p className="text-muted-foreground sm:col-span-2">
-                                <span className="font-medium text-foreground/80">Artifact removal:</span> {s.artifactRemoval.method} ({s.artifactRemoval.dataset}) · Quality {s.artifactRemoval.qualityScore}/100
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      ))}
                     </div>
                   )}
                 </div>
@@ -1316,7 +1818,19 @@ function ResultsOverview({ patients, cohortInputs, onOpenWorkspace, onBackToSele
 // ============================================================
 // Diagnostic Workspace
 // ============================================================
-function DiagnosticWorkspace({ patientId, onBack }: { patientId: string; onBack: () => void }) {
+function DiagnosticWorkspace({
+  patientId,
+  onBack,
+  initialBatchResult,
+  cohortInputEntry,
+  cohortFiles,
+}: {
+  patientId: string;
+  onBack: () => void;
+  initialBatchResult?: BatchPatientResult;
+  cohortInputEntry?: CohortInputEntry;
+  cohortFiles?: Partial<Record<Modality, File>>;
+}) {
   const { getPatient, confirmDiagnosis, applyAnalysisResult } = usePatients();
   const navigate = useNavigate();
   const patient = getPatient(patientId);
@@ -1399,8 +1913,63 @@ function DiagnosticWorkspace({ patientId, onBack }: { patientId: string; onBack:
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
   const [showInputConfirm, setShowInputConfirm] = useState(false);
   const [feedbackConfirmed, setFeedbackConfirmed] = useState(false);
+  const batchHydratedRef = useRef(false);
 
-  const toolCursor = activeTool === "pan" ? (isPanning ? "grabbing" : "grab") 
+  useEffect(() => {
+    if (batchHydratedRef.current || !initialBatchResult) return;
+    batchHydratedRef.current = true;
+
+    const okRows = initialBatchResult.perModality.filter(r => !r.error);
+    if (!okRows.length) return;
+
+    for (const row of okRows) {
+      const previewUrl = cohortInputEntry?.[row.modality]?.previewUrl ?? null;
+      const stageIds = (row.modality === "xray" ? xrayStages : mriStages)
+        .map(s => s.id)
+        .filter(id => id !== "complete");
+      const session: ModalitySession = {
+        fileName: row.inputFileName,
+        imageUrl: previewUrl,
+        stage: "complete",
+        stagesCompleted: stageIds,
+        currentStageIndex: stageIds.length,
+        uploadProgress: 100,
+        feedbackConfirmed: false,
+        selectedView: row.view,
+      };
+      sessionsRef.current[row.modality] = session;
+      if (cohortFiles?.[row.modality]) {
+        uploadedFilesRef.current[row.modality] = cohortFiles[row.modality];
+      }
+      if (row.modality === "xray" && row.xrayData) {
+        setXrayApiData(row.xrayData);
+        setSelectedModelIds(defaultSelectedModelIds(row.xrayData));
+      }
+      if (row.modality === "mri" && row.mriData) {
+        setMriApiData(row.mriData);
+        setSelectedMriStageIds(defaultSelectedMriStageIds());
+        setMriGallerySliceIdx(row.mriData.primary_slice_idx ?? row.mriData.preview?.center_slice_idx ?? null);
+        setMriViewMode("gradcam");
+      }
+      if (row.reportAssets) reportAssetsRef.current = row.reportAssets;
+    }
+
+    const primary = okRows[0];
+    setActiveModality(primary.modality);
+    setSelectedView(primary.view);
+    setUploadedFileName(primary.inputFileName);
+    setUploadedImageUrl(cohortInputEntry?.[primary.modality]?.previewUrl ?? null);
+    setAnalysisResult({ grade: primary.grade, confidence: primary.confidence, findings: primary.findings });
+    setDiagnosticStage("complete");
+    setStagesCompleted(
+      (primary.modality === "xray" ? xrayStages : mriStages).map(s => s.id).filter(id => id !== "complete"),
+    );
+    setCurrentStageIndex((primary.modality === "xray" ? xrayStages : mriStages).length - 1);
+    setUploadProgress(100);
+    setFeedbackConfirmed(false);
+  }, [initialBatchResult, cohortInputEntry, cohortFiles]);
+
+  const toolCursor = activeTool === "pan" ? (isPanning ? "grabbing" : "grab")
     : activeTool === "measure" ? "crosshair" 
     : activeTool === "annotate" ? "crosshair" 
     : activeTool === "draw" ? "crosshair" 
@@ -1428,7 +1997,16 @@ function DiagnosticWorkspace({ patientId, onBack }: { patientId: string; onBack:
   const mriPreviewDisplayUrl = mriApiData
     ? galleryImageForMode(getActiveGallerySlice(mriApiData, mriGallerySliceIdx), mriApiData.preview, mriViewMode)
     : null;
+  const mriInputDisplayUrl = mriApiData
+    ? galleryImageForMode(getActiveGallerySlice(mriApiData, mriGallerySliceIdx), mriApiData.preview, "raw")
+    : null;
   const mriActiveSlice = mriApiData ? getActiveGallerySlice(mriApiData, mriGallerySliceIdx) : null;
+
+  const editorDisplayUrl =
+    uploadedImageUrl
+    ?? (activeModality === "mri" ? mriInputDisplayUrl : null)
+    ?? (activeModality === "xray" ? reportAssetsRef.current?.inputImageDataUrl : null)
+    ?? null;
 
   const previewCamViews = useMemo(() => {
     if (!xrayApiData) return [];
@@ -1697,8 +2275,8 @@ function DiagnosticWorkspace({ patientId, onBack }: { patientId: string; onBack:
         toast.warning("Low ensemble confidence", { description: "Review findings before confirming." });
       }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "X-ray API failed", {
-        description: "Start backbone: uvicorn app:app --port 9000",
+      toast.error(e instanceof Error ? e.message : "X-ray analysis failed", {
+        description: "Could not reach the analysis server. Please try again.",
       });
       setDiagnosticStage("ready");
       setStagesCompleted([]);
@@ -1765,8 +2343,8 @@ function DiagnosticWorkspace({ patientId, onBack }: { patientId: string; onBack:
         toast.warning("Low MRI classification confidence", { description: "Review multi-label findings before confirming." });
       }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "MRI API failed", {
-        description: "Start backbone with MRI weights in backbone/mri/models/",
+      toast.error(e instanceof Error ? e.message : "MRI analysis failed", {
+        description: "Could not reach the analysis server. Please try again.",
       });
       setDiagnosticStage("ready");
       setStagesCompleted([]);
@@ -2202,6 +2780,9 @@ function DiagnosticWorkspace({ patientId, onBack }: { patientId: string; onBack:
                     <button key={view} onClick={() => setSelectedView(view)} className={cn("px-2 py-0.5 rounded text-[10px] font-medium transition-all", selectedView === view ? "bg-primary text-primary-foreground" : "text-muted-foreground")}>{view}</button>
                   ))}
                 </div>
+                {activeModality === "mri" && diagnosticStage === "complete" && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted font-medium text-muted-foreground">Raw input</span>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 {diagnosticStage !== "idle" && diagnosticStage !== "ready" && (
@@ -2321,23 +2902,35 @@ function DiagnosticWorkspace({ patientId, onBack }: { patientId: string; onBack:
                   </motion.div>
                 ) : diagnosticStage === "complete" ? (
                   <motion.div key="result-image" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0">
-                    <KonvaImageEditor
-                      ref={editorRef}
-                      imageUrl={uploadedImageUrl}
-                      tool={activeTool as EditorTool}
-                      brightness={brightness}
-                      contrast={contrast}
-                      zoom={zoom}
-                      drawColor={drawColor}
-                      drawSize={drawSize}
-                      textColor={textColor}
-                      textFontSize={textFontSize}
-                      measureColor={measureColor}
-                      annotateColor={annotateColor}
-                      onToolChange={(t) => setActiveTool(t)}
-                    />
+                    {editorDisplayUrl ? (
+                      <KonvaImageEditor
+                        ref={editorRef}
+                        imageUrl={editorDisplayUrl}
+                        tool={activeTool as EditorTool}
+                        brightness={brightness}
+                        contrast={contrast}
+                        zoom={zoom}
+                        drawColor={drawColor}
+                        drawSize={drawSize}
+                        textColor={textColor}
+                        textFontSize={textFontSize}
+                        measureColor={measureColor}
+                        annotateColor={annotateColor}
+                        onToolChange={(t) => setActiveTool(t)}
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center p-4 bg-foreground/[0.02]">
+                        <ScanImageTile
+                          className="w-full max-w-md"
+                          maxHeight="100%"
+                          imageUrl={mriInputDisplayUrl}
+                          label="Raw input"
+                          sublabel={`${uploadedFileName || "MRI volume"} · ${selectedView}`}
+                        />
+                      </div>
+                    )}
                     {/* Draw options panel */}
-                    {activeTool === "draw" && (
+                    {editorDisplayUrl && activeTool === "draw" && (
                       <div className="absolute top-3 left-3 z-30 bg-background/95 backdrop-blur-sm border rounded-xl p-2.5 shadow-lg space-y-2 w-[170px]">
                         <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Pen Color</p>
                         <div className="flex flex-wrap gap-1.5">
@@ -2358,7 +2951,7 @@ function DiagnosticWorkspace({ patientId, onBack }: { patientId: string; onBack:
                       </div>
                     )}
                     {/* Text default options panel — applies to next text box */}
-                    {activeTool === "text" && (
+                    {editorDisplayUrl && activeTool === "text" && (
                       <div className="absolute top-3 left-3 z-30 bg-background/95 backdrop-blur-sm border rounded-xl p-2.5 shadow-lg space-y-2 w-[170px]">
                         <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Text Color</p>
                         <div className="flex flex-wrap gap-1.5">
@@ -2380,7 +2973,7 @@ function DiagnosticWorkspace({ patientId, onBack }: { patientId: string; onBack:
                       </div>
                     )}
                     {/* Ruler (measure) options panel */}
-                    {activeTool === "measure" && (
+                    {editorDisplayUrl && activeTool === "measure" && (
                       <div className="absolute top-3 left-3 z-30 bg-background/95 backdrop-blur-sm border rounded-xl p-2.5 shadow-lg space-y-2 w-[170px]">
                         <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Ruler Color</p>
                         <div className="flex flex-wrap gap-1.5">
@@ -2398,7 +2991,7 @@ function DiagnosticWorkspace({ patientId, onBack }: { patientId: string; onBack:
                       </div>
                     )}
                     {/* Annotate (marker) options panel */}
-                    {activeTool === "annotate" && (
+                    {editorDisplayUrl && activeTool === "annotate" && (
                       <div className="absolute top-3 left-3 z-30 bg-background/95 backdrop-blur-sm border rounded-xl p-2.5 shadow-lg space-y-2 w-[170px]">
                         <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Marker Color</p>
                         <div className="flex flex-wrap gap-1.5">
@@ -2416,14 +3009,26 @@ function DiagnosticWorkspace({ patientId, onBack }: { patientId: string; onBack:
                       </div>
                     )}
                     <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between z-10 pointer-events-none">
-                      <span className="text-[10px] text-white/70 bg-black/40 px-2 py-0.5 rounded truncate">{uploadedFileName}</span>
+                      <span className="text-[10px] text-white/70 bg-black/40 px-2 py-0.5 rounded truncate">
+                        {activeModality === "mri" ? `Raw · ${uploadedFileName}` : uploadedFileName}
+                      </span>
                       <span className="text-[10px] text-white/70 bg-black/40 px-2 py-0.5 rounded">{selectedView}</span>
                     </div>
                   </motion.div>
                 ) : (
                   <motion.div key="processing" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                    className="w-72 sm:w-80 p-5 rounded-xl bg-background border shadow-sm"
+                    className="absolute inset-0 flex flex-col items-center justify-center p-4"
                   >
+                    {(uploadedImageUrl || (activeModality === "mri" ? mriInputDisplayUrl : mriPreviewDisplayUrl)) && (
+                      <div className="absolute inset-0 opacity-20 pointer-events-none">
+                        <img
+                          src={uploadedImageUrl ?? (activeModality === "mri" ? mriInputDisplayUrl : mriPreviewDisplayUrl) ?? undefined}
+                          alt=""
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                    )}
+                    <div className="relative w-72 sm:w-80 p-5 rounded-xl bg-background border shadow-sm">
                     <div className="flex items-center gap-2 mb-2">
                       <Loader2 className="w-4 h-4 text-primary animate-spin" />
                       <p className="text-sm font-medium">Processing {activeModality === "xray" ? "X-Ray" : "MRI"}</p>
@@ -2437,7 +3042,7 @@ function DiagnosticWorkspace({ patientId, onBack }: { patientId: string; onBack:
                     {isProcessing && uploadProgress < 100 && (
                       <div className="mt-3 space-y-1">
                         <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                          <span>Uploading to backbone…</span>
+                          <span>Uploading…</span>
                           <span className="text-mono">{Math.round(uploadProgress)}%</span>
                         </div>
                         <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
@@ -2446,8 +3051,9 @@ function DiagnosticWorkspace({ patientId, onBack }: { patientId: string; onBack:
                       </div>
                     )}
                     {isProcessing && uploadProgress >= 100 && (
-                      <p className="text-[10px] text-muted-foreground mt-2">Running inference on backbone…</p>
+                      <p className="text-[10px] text-muted-foreground mt-2">Running model inference…</p>
                     )}
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -2783,7 +3389,7 @@ function DiagnosticWorkspace({ patientId, onBack }: { patientId: string; onBack:
               </div>
 
               {/* Clinical Interpretation + References */}
-              <ClinicalInterpretation patient={patient} analysis={computeJointAnalysis(patient)} />
+              <ClinicalInterpretation patient={patient} analysis={computeJointAnalysis(patient, initialBatchResult)} batchResult={initialBatchResult} />
 
               {/* Actions */}
               <div className="flex items-center justify-between flex-wrap gap-3">
@@ -2879,10 +3485,31 @@ function DiagnosticWorkspace({ patientId, onBack }: { patientId: string; onBack:
               </div>
             </div>
           ) : (
-            <div className="flex items-center justify-center py-4">
-              <p className="text-xs text-muted-foreground">
-                {isProcessing ? "Analysis in progress..." : "Upload a scan to begin AI-assisted diagnosis"}
-              </p>
+            <div className="max-w-4xl mx-auto py-6 px-4">
+              <div className="rounded-xl border bg-card p-6 flex flex-col items-center gap-4 text-center">
+                <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                <div>
+                  <p className="text-sm font-medium">
+                    {isProcessing ? `Analyzing ${activeModality === "xray" ? "X-Ray" : "MRI"}…` : "Upload a scan to begin"}
+                  </p>
+                  {isProcessing && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {stages.find((_, i) => i === currentStageIndex)?.label ?? "Processing…"}
+                    </p>
+                  )}
+                </div>
+                {isProcessing && uploadProgress < 100 && (
+                  <div className="w-full max-w-xs space-y-1">
+                    <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                      <span>Uploading…</span>
+                      <span className="text-mono">{Math.round(uploadProgress)}%</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                      <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${uploadProgress}%` }} />
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -3000,12 +3627,14 @@ function HistoryView({ onOpen, onBack }: { onOpen: (p: Patient) => void; onBack:
 type Phase = "select" | "history" | "inputs" | "confirm" | "processing" | "results" | "workspace";
 
 export default function DiagnosticsPage() {
-  const { patients, getPatient } = usePatients();
+  const { patients, getPatient, applyAnalysisResult } = usePatients();
   const [searchParams, setSearchParams] = useSearchParams();
   const preselectedId = searchParams.get("patient");
   const [phase, setPhase] = useState<Phase>(preselectedId ? "workspace" : "select");
   const [cohortIds, setCohortIds] = useState<string[]>([]);
   const [cohortInputs, setCohortInputs] = useState<Map<string, CohortInputEntry>>(new Map());
+  const [cohortFiles, setCohortFiles] = useState<CohortFilesMap>(new Map());
+  const [cohortResults, setCohortResults] = useState<Map<string, BatchPatientResult>>(new Map());
   const [workspacePatientId, setWorkspacePatientId] = useState<string | null>(preselectedId);
 
   const cohort = useMemo(
@@ -3017,6 +3646,8 @@ export default function DiagnosticsPage() {
     setPhase("select");
     setCohortIds([]);
     setCohortInputs(new Map());
+    setCohortFiles(new Map());
+    setCohortResults(new Map());
     setWorkspacePatientId(null);
     setSearchParams({});
   };
@@ -3034,11 +3665,13 @@ export default function DiagnosticsPage() {
     }
     setCohortIds(selected.map(p => p.id));
     setCohortInputs(new Map());
+    setCohortFiles(new Map());
+    setCohortResults(new Map());
     setPhase("inputs");
   };
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }} className="h-full flex flex-col">
+    <motion.div initial={false} animate={{ opacity: 1 }} transition={{ duration: 0.25 }} className="flex-1 flex flex-col min-h-0 w-full">
       <AnimatePresence mode="wait">
         {phase === "select" && (
           <PatientSelector key="selector" onConfirm={handlePatientConfirm} onOpenHistory={() => setPhase("history")} />
@@ -3051,7 +3684,7 @@ export default function DiagnosticsPage() {
             key="inputs"
             patients={cohort}
             onCancel={() => setPhase("select")}
-            onContinue={(inputs) => { setCohortInputs(inputs); setPhase("confirm"); }}
+            onContinue={(inputs, files) => { setCohortInputs(inputs); setCohortFiles(files); setPhase("confirm"); }}
           />
         )}
         {phase === "confirm" && (
@@ -3064,15 +3697,33 @@ export default function DiagnosticsPage() {
           />
         )}
         {phase === "processing" && (
-          <ProcessingScreen key="processing" patients={cohort} onComplete={() => setPhase("results")} onCancel={goSelect} />
+          <ProcessingScreen
+            key="processing"
+            patients={cohort}
+            cohortInputs={cohortInputs}
+            cohortFiles={cohortFiles}
+            applyAnalysisResult={applyAnalysisResult}
+            onComplete={(results) => { setCohortResults(results); setPhase("results"); }}
+            onCancel={goSelect}
+          />
         )}
         {phase === "results" && (
-          <ResultsOverview key="results" patients={cohort} cohortInputs={cohortInputs} onOpenWorkspace={openWorkspace} onBackToSelect={goSelect} />
+          <ResultsOverview
+            key="results"
+            patients={cohort}
+            cohortInputs={cohortInputs}
+            cohortResults={cohortResults}
+            onOpenWorkspace={openWorkspace}
+            onBackToSelect={goSelect}
+          />
         )}
         {phase === "workspace" && workspacePatientId && (
           <DiagnosticWorkspace
-            key="workspace"
+            key={`workspace-${workspacePatientId}`}
             patientId={workspacePatientId}
+            initialBatchResult={cohortResults.get(workspacePatientId)}
+            cohortInputEntry={cohortInputs.get(workspacePatientId)}
+            cohortFiles={cohortFiles.get(workspacePatientId)}
             onBack={() => {
               if (cohortIds.length > 0) { setPhase("results"); setSearchParams({}); }
               else goSelect();

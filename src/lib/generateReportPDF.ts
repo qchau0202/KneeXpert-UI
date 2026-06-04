@@ -95,7 +95,8 @@ export function generateReportPDF(patient: Patient): jsPDF {
     doc.text(`${currentKL?.label} Osteoarthritis`, margin + 35, y + 18);
     doc.text(`Confidence: ${patient.aiConfidence}%`, margin + 35, y + 23);
 
-    const modelText = patient.modality === "mri" ? "Swin-UNet + DenseNet201" : "Ensemble (ResNet50 + DenseNet201 + VGG-19)";
+    const modelText = report?.modelUsed
+      ?? (patient.modality === "mri" ? "MACS-Net + DeiT-S" : "Ensemble (8 models)");
     doc.text(`Model: ${modelText}`, margin + 90, y + 18);
     doc.text(`Pipeline: ${patient.modality === "xray" ? "Phase I (X-Ray)" : "Phase II (MRI)"}`, margin + 90, y + 23);
   } else {

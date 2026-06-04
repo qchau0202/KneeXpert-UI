@@ -34,6 +34,20 @@ export interface ReportModelSnapshot {
   gradcamDataUrl: string | null;
 }
 
+/** Per-modality snapshot stored after batch or multi-modality analysis. */
+export interface ModalityReportSnapshot {
+  modality: Modality;
+  grade: number;
+  confidence: number;
+  findings: string[];
+  modelUsed: string;
+  inputFileName: string;
+  view: string;
+  inputImageDataUrl?: string | null;
+  ensembleGradcamDataUrl?: string | null;
+  modelResults?: ReportModelSnapshot[];
+}
+
 /** One living report per patient — updated when the doctor confirms AI feedback. */
 export interface PatientReport {
   aiGrade: number;
@@ -49,6 +63,8 @@ export interface PatientReport {
   inputImageDataUrl?: string | null;
   ensembleGradcamDataUrl?: string | null;
   modelResults?: ReportModelSnapshot[];
+  /** Full per-modality outputs when batch or joint analysis ran. */
+  modalitySnapshots?: ModalityReportSnapshot[];
   doctorConfirmed: boolean;
   doctorOverride: boolean;
   overrideNotes?: string;
@@ -243,6 +259,56 @@ export const mockPatients: Patient[] = [
     ],
     timeline: [
       { date: "2026-03-17", type: "scan", summary: "Bilateral AP knee X-ray uploaded. Awaiting analysis." },
+    ],
+  },
+  {
+    id: "PT-9901",
+    name: "Lý Thị Hoa",
+    age: 48,
+    gender: "Female",
+    bmi: 24.1,
+    history: "Right knee effusion for 6 months. No prior knee surgery.",
+    symptoms: "Intermittent swelling after standing, occasional locking sensation.",
+    painLevel: 5,
+    grade: null,
+    aiConfidence: null,
+    lastVisit: "2026-05-31",
+    status: "pending",
+    modality: "mri",
+    scans: [
+      {
+        id: "SCN-9901-01", modality: "mri", date: "2026-05-31", view: "Axial", region: "Right Knee",
+        grade: null, aiConfidence: null, modelUsed: "Pending",
+        preprocessing: [],
+      },
+    ],
+    timeline: [
+      { date: "2026-05-31", type: "scan", summary: "Right knee MRI ordered. Ready for MACS-Net + DeiT-S analysis." },
+    ],
+  },
+  {
+    id: "PT-9902",
+    name: "Đặng Văn Khôi",
+    age: 61,
+    gender: "Male",
+    bmi: 28.4,
+    history: "Occupational knee load (construction). Family history of osteoarthritis.",
+    symptoms: "Progressive medial knee pain, crepitus, reduced flexion.",
+    painLevel: 6,
+    grade: null,
+    aiConfidence: null,
+    lastVisit: "2026-05-31",
+    status: "pending",
+    modality: "xray",
+    scans: [
+      {
+        id: "SCN-9902-01", modality: "xray", date: "2026-05-31", view: "AP", region: "Left Knee",
+        grade: null, aiConfidence: null, modelUsed: "Pending",
+        preprocessing: [],
+      },
+    ],
+    timeline: [
+      { date: "2026-05-31", type: "scan", summary: "Left knee AP X-ray uploaded. Awaiting ensemble analysis." },
     ],
   },
 ];

@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import {
   mockPatients,
   type Modality,
+  type ModalityReportSnapshot,
   type Patient,
   type PatientReport,
   type ReportModelSnapshot,
@@ -21,6 +22,7 @@ export type ConfirmDiagnosisPayload = {
   inputImageDataUrl?: string | null;
   ensembleGradcamDataUrl?: string | null;
   modelResults?: ReportModelSnapshot[];
+  modalitySnapshots?: ModalityReportSnapshot[];
   doctorOverride?: boolean;
   overrideNotes?: string;
 };
@@ -28,7 +30,9 @@ export type ConfirmDiagnosisPayload = {
 export type ApplyAnalysisPayload = Omit<
   ConfirmDiagnosisPayload,
   "doctorOverride" | "overrideNotes"
->;
+> & {
+  modalitySnapshots?: ModalityReportSnapshot[];
+};
 
 function buildInitialReport(p: Omit<Patient, "report"> & { report?: PatientReport | null }): PatientReport | null {
   const scan = p.scans.find(s => s.grade != null) ?? p.scans[0];
@@ -101,6 +105,7 @@ export function PatientProvider({ children }: { children: ReactNode }) {
           inputImageDataUrl: payload.inputImageDataUrl,
           ensembleGradcamDataUrl: payload.ensembleGradcamDataUrl,
           modelResults: payload.modelResults,
+          modalitySnapshots: payload.modalitySnapshots,
           doctorConfirmed: false,
           doctorOverride: false,
           updatedAt: today,
@@ -149,6 +154,7 @@ export function PatientProvider({ children }: { children: ReactNode }) {
           inputImageDataUrl: payload.inputImageDataUrl ?? p.report?.inputImageDataUrl,
           ensembleGradcamDataUrl: payload.ensembleGradcamDataUrl ?? p.report?.ensembleGradcamDataUrl,
           modelResults: payload.modelResults ?? p.report?.modelResults,
+          modalitySnapshots: payload.modalitySnapshots ?? p.report?.modalitySnapshots,
           doctorConfirmed: true,
           doctorOverride: payload.doctorOverride ?? false,
           overrideNotes: payload.overrideNotes,
