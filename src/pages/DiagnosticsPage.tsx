@@ -244,44 +244,46 @@ function PatientSelector({ onConfirm, onOpenHistory }: { onConfirm: (patients: P
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 overflow-auto">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-5">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">Diagnostic Workspace</h1>
-            <p className="text-xs text-muted-foreground mt-0.5">Select a patient for single diagnosis, or multiple patients for batch analysis. You will upload scan inputs before analysis starts.</p>
+        <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-3 mb-4">
+          <div className="min-w-0">
+            <h1 className="text-lg sm:text-xl font-semibold tracking-tight">Diagnostic Workspace</h1>
+            <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed max-w-2xl">
+              Select one patient for single diagnosis, or several for batch analysis. Upload scans before analysis runs.
+            </p>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex flex-wrap items-center gap-1.5 shrink-0">
             <button
               onClick={onOpenHistory}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border bg-background text-xs font-medium hover:bg-muted transition-colors"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border bg-background text-xs font-medium hover:bg-muted transition-colors"
             >
               <Clock className="w-3.5 h-3.5" /> History
             </button>
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-warning/10 text-warning text-xs font-medium">
-              <AlertTriangle className="w-3.5 h-3.5" />{urgentCount} urgent
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-warning/10 text-warning text-[11px] font-medium">
+              <AlertTriangle className="w-3 h-3" /><span className="tabular-nums">{urgentCount}</span> urgent
             </div>
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted text-muted-foreground text-xs font-medium">
-              <Clock className="w-3.5 h-3.5" />{pendingCount} pending
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-muted text-muted-foreground text-[11px] font-medium">
+              <Clock className="w-3 h-3" /><span className="tabular-nums">{pendingCount}</span> pending
             </div>
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-medium">
-              <Layers className="w-3.5 h-3.5" />{multiModalityCount} multi-modality
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-primary/10 text-primary text-[11px] font-medium">
+              <Layers className="w-3 h-3" /><span className="tabular-nums">{multiModalityCount}</span> joint
             </div>
           </div>
         </div>
 
         {/* Search */}
-        <div className="relative mb-4">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <div className="relative mb-3">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
           <input
             value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Search by name or patient ID..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/30 transition-shadow"
+            className="w-full pl-9 pr-3 py-2 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/30 transition-shadow"
           />
         </div>
 
         {/* Filters row */}
-        <div className="flex flex-wrap items-center gap-2 mb-5">
+        <div className="flex flex-wrap items-center gap-2 mb-3">
           <div className="flex items-center gap-0.5 bg-muted rounded-lg p-0.5">
             {statusOptions.map(s => (
               <button key={s} onClick={() => setStatusFilter(s)}
@@ -308,33 +310,31 @@ function PatientSelector({ onConfirm, onOpenHistory }: { onConfirm: (patients: P
         </div>
 
         {/* Action bar */}
-        <div className="flex items-center justify-between mb-3 p-3 rounded-xl border bg-muted/30 sticky top-0 z-10 backdrop-blur-sm">
-          <div className="flex items-center gap-3">
-            <button onClick={selectAllFiltered} className="text-xs text-primary hover:underline font-medium">
-              {filtered.length > 0 && filtered.every(p => selected.has(p.id)) ? "Deselect Filtered" : "Select Filtered"}
+        <div className="flex items-center justify-between gap-2 mb-2.5 px-3 py-2 rounded-lg border bg-muted/30 sticky top-0 z-10 backdrop-blur-sm">
+          <div className="flex items-center gap-2.5 min-w-0 flex-wrap">
+            <button onClick={selectAllFiltered} className="text-[11px] text-primary hover:underline font-medium shrink-0">
+              {filtered.length > 0 && filtered.every(p => selected.has(p.id)) ? "Deselect all" : "Select all"}
             </button>
-            <span className="text-xs text-muted-foreground">
-              {selected.size} selected · Estimated ~{totalEta}s
+            <span className="text-[11px] text-muted-foreground">
+              {filtered.length} shown · {selected.size} selected{selected.size > 0 && <> · ~{totalEta}s</>}
             </span>
           </div>
           <button
             onClick={() => onConfirm(selectedPatients)}
             disabled={selected.size === 0}
-            className={cn("inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium transition-all",
+            className={cn("inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all shrink-0",
               selected.size > 0
                 ? "bg-primary text-primary-foreground hover:bg-primary/90"
                 : "bg-muted text-muted-foreground cursor-not-allowed"
             )}
           >
             <ArrowRight className="w-3.5 h-3.5" />
-            {selected.size === 1 ? "Open workspace" : `Batch setup (${selected.size})`}
+            {selected.size === 1 ? "Open workspace" : `Batch (${selected.size})`}
           </button>
         </div>
 
-        <p className="text-xs text-muted-foreground mb-3">{filtered.length} patient{filtered.length !== 1 ? "s" : ""} found</p>
-
         {/* Patient cards — unified multi-select */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5">
           {filtered.map(p => {
             const mods = getPatientModalities(p);
             const isSelected = selected.has(p.id);
@@ -342,44 +342,44 @@ function PatientSelector({ onConfirm, onOpenHistory }: { onConfirm: (patients: P
             return (
               <div key={p.id} onClick={() => toggle(p.id)} role="button" tabIndex={0}
                 onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(p.id); } }}
-                className={cn("relative p-4 rounded-xl border bg-card text-left transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring/30",
+                className={cn("relative p-3 rounded-lg border bg-card text-left transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring/30",
                   isSelected ? "border-primary ring-1 ring-primary/30 shadow-sm" : "hover:border-border/80 hover:shadow-sm")}>
-                <div className="absolute top-3 right-3 pointer-events-none">
-                  <div className={cn("w-5 h-5 rounded border-2 flex items-center justify-center transition-all",
+                <div className="absolute top-2.5 right-2.5 pointer-events-none">
+                  <div className={cn("w-4 h-4 rounded border-2 flex items-center justify-center transition-all",
                     isSelected ? "bg-primary border-primary" : "border-muted-foreground/30")}>
-                    {isSelected && <Check className="w-3 h-3 text-primary-foreground" />}
+                    {isSelected && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
                   </div>
                 </div>
-                <div className="flex items-center gap-3 mb-3 pr-7">
-                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <User className="w-4 h-4 text-primary" />
+                <div className="flex items-center gap-2.5 mb-2 pr-6">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <User className="w-3.5 h-3.5 text-primary" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium truncate">{p.name}</p>
-                    <p className="text-[10px] text-muted-foreground font-mono">{p.id} · {p.age}yo · {p.gender}</p>
+                    <p className="text-[10px] text-muted-foreground font-mono truncate">{p.id} · {p.age}yo</p>
                   </div>
                 </div>
-                <div className="space-y-1.5 text-xs text-muted-foreground">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1">
-                      {mods.includes("xray") && <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-muted font-medium">X-Ray</span>}
-                      {mods.includes("mri") && <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-muted font-medium">MRI</span>}
-                      {mods.length > 1 && <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">Joint</span>}
+                <div className="space-y-1 text-[11px] text-muted-foreground">
+                  <div className="flex items-center justify-between gap-1">
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {mods.includes("xray") && <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-muted font-medium">X-Ray</span>}
+                      {mods.includes("mri") && <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-muted font-medium">MRI</span>}
+                      {mods.length > 1 && <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">Joint</span>}
                     </div>
                     <StatusBadge status={p.status} />
                   </div>
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between text-[10px]">
                     <span>{p.scans.length} scan{p.scans.length !== 1 ? "s" : ""}</span>
-                    <span className="flex items-center gap-1"><Timer className="w-3 h-3" />Est. ~{eta}s</span>
+                    <span className="flex items-center gap-0.5 tabular-nums"><Timer className="w-3 h-3" />~{eta}s</span>
                   </div>
-                  <p className="text-[10px] truncate">{p.symptoms}</p>
+                  <p className="text-[10px] line-clamp-2 leading-snug">{p.symptoms}</p>
                 </div>
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); setPreviewPatient(p); }}
-                  className="mt-3 w-full inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg border bg-background text-[11px] font-medium text-foreground hover:bg-muted transition-colors"
+                  className="mt-2 w-full inline-flex items-center justify-center gap-1 px-2 py-1 rounded-md border bg-background text-[10px] font-medium text-foreground hover:bg-muted transition-colors"
                 >
-                  <Scan className="w-3 h-3" /> View inputs & history
+                  <Scan className="w-3 h-3" /> Inputs & history
                 </button>
               </div>
             );
@@ -865,60 +865,66 @@ function BatchInputScreen({
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 overflow-auto">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
-        <div className="flex items-center gap-3 mb-6">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-5">
+        <div className="flex items-center gap-2.5 mb-3">
           <button onClick={onCancel} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <h1 className="text-xl font-semibold">Upload Batch Inputs</h1>
-            <p className="text-xs text-muted-foreground">Upload each required scan type (X-Ray and/or MRI) per patient before analysis.</p>
+            <h1 className="text-lg font-semibold">Upload Batch Inputs</h1>
+            <p className="text-xs text-muted-foreground mt-0.5">Upload each required scan (X-Ray and/or MRI) per patient.</p>
           </div>
         </div>
 
-        <div className="flex items-center justify-between mb-4 p-3 rounded-xl border bg-muted/30">
-          <span className="text-xs text-muted-foreground">
-            {readyCount} of {patients.length} patient{patients.length !== 1 ? "s" : ""} ready
+        <div className="flex items-center justify-between gap-2 mb-3 px-3 py-2 rounded-lg border bg-muted/30 sticky top-0 z-10 backdrop-blur-sm">
+          <span className="text-[11px] text-muted-foreground">
+            <span className="font-medium text-foreground tabular-nums">{readyCount}</span> / {patients.length} ready
           </span>
-          <span className="text-xs font-medium text-primary">{allReady ? "All inputs uploaded" : "Upload all required modalities per patient"}</span>
+          <div className="flex-1 max-w-[200px] h-1.5 bg-muted rounded-full overflow-hidden mx-2 hidden sm:block">
+            <div
+              className="h-full bg-primary transition-all duration-300"
+              style={{ width: patients.length ? `${(readyCount / patients.length) * 100}%` : "0%" }}
+            />
+          </div>
+          <span className="text-[11px] font-medium text-primary">{allReady ? "All uploaded" : "Complete all modalities"}</span>
         </div>
 
-        <div className="space-y-3 mb-6">
+        <div className={cn("gap-2.5 mb-4", patients.length > 1 ? "grid grid-cols-1 lg:grid-cols-2" : "space-y-2.5")}>
           {patients.map(p => {
             const inputs = inputMap.get(p.id);
             const mods = getPatientModalities(p);
             const patientReady = isPatientInputsReady(p, inputs);
             return (
-              <div key={p.id} className={cn("p-4 rounded-xl border bg-card transition-colors", patientReady ? "border-success/30" : "border-border")}>
-                <div className="flex items-start gap-3 flex-wrap">
-                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <User className="w-4 h-4 text-primary" />
+              <div key={p.id} className={cn("p-3 rounded-lg border bg-card transition-colors", patientReady ? "border-success/30" : "border-border")}>
+                <div className="flex items-start gap-2.5">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <User className="w-3.5 h-3.5 text-primary" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium">{p.name}</p>
+                    <p className="text-sm font-medium truncate">{p.name}</p>
                     <p className="text-[10px] text-muted-foreground font-mono">{p.id}</p>
-                    <div className="flex items-center gap-1 mt-1">
-                      {mods.includes("xray") && <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-muted font-medium">X-Ray</span>}
-                      {mods.includes("mri") && <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-muted font-medium">MRI</span>}
-                      {mods.length > 1 && <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">Joint</span>}
+                    <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                      {mods.includes("xray") && <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-muted font-medium">X-Ray</span>}
+                      {mods.includes("mri") && <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-muted font-medium">MRI</span>}
+                      {mods.length > 1 && <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">Joint</span>}
                     </div>
                   </div>
                   <button
                     type="button"
                     onClick={() => setPreviewPatient(p)}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border bg-background text-[11px] font-medium hover:bg-muted transition-colors"
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-md border bg-background text-[10px] font-medium hover:bg-muted transition-colors shrink-0"
                   >
-                    <Scan className="w-3 h-3" /> View inputs & history
+                    <Scan className="w-3 h-3" /> History
                   </button>
                 </div>
 
-                <div className="mt-3 space-y-2">
+                <div className={cn("mt-2.5 gap-1.5", mods.length > 1 ? "grid sm:grid-cols-2" : "space-y-1.5")}>
                   {mods.map(mod => {
                     const input = inputs?.[mod];
                     const refKey = cohortInputKey(p.id, mod);
                     return (
-                      <div key={mod} className="rounded-lg border bg-muted/20 p-3">
-                        <div className="flex items-center justify-between mb-2">
+                      <div key={mod} className="rounded-lg border bg-muted/20 p-2.5">
+                        <div className="flex items-center justify-between mb-1.5">
                           <span className="text-[10px] uppercase font-semibold tracking-wider text-muted-foreground">
                             {mod === "xray" ? "X-Ray input" : "MRI input"}
                           </span>
@@ -951,7 +957,7 @@ function BatchInputScreen({
                           <button
                             type="button"
                             onClick={() => fileRefs.current.get(refKey)?.click()}
-                            className="w-full h-16 rounded-lg border-2 border-dashed border-border hover:border-primary/40 hover:bg-primary/5 flex flex-col items-center justify-center gap-1 transition-all"
+                            className="w-full h-12 rounded-lg border-2 border-dashed border-border hover:border-primary/40 hover:bg-primary/5 flex flex-col items-center justify-center gap-0.5 transition-all"
                           >
                             <Upload className="w-4 h-4 text-muted-foreground" />
                             <span className="text-[11px] font-medium">Upload {mod === "xray" ? "X-Ray" : "MRI"} scan</span>
@@ -1014,75 +1020,75 @@ function ConfirmationScreen({
   }, 0);
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 overflow-auto">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
-        <div className="flex items-center gap-3 mb-6">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-5">
+        <div className="flex items-center gap-2.5 mb-3">
           <button onClick={onCancel} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <h1 className="text-xl font-semibold">Confirm Batch Diagnosis</h1>
-            <p className="text-xs text-muted-foreground">Review uploaded inputs below, then start the AI analysis.</p>
+            <h1 className="text-lg font-semibold">Confirm Batch Diagnosis</h1>
+            <p className="text-xs text-muted-foreground mt-0.5">Review uploads, then start AI analysis.</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-3 mb-5">
-          <div className="p-4 rounded-xl border bg-card">
-            <div className="flex items-center gap-2 mb-1"><Users className="w-3.5 h-3.5 text-primary" /><span className="text-[10px] uppercase tracking-wider text-muted-foreground">Patients</span></div>
-            <p className="text-2xl font-semibold">{patients.length}</p>
+        <div className="flex flex-wrap items-center gap-2 mb-3 p-2.5 rounded-lg border bg-card">
+          <div className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-muted/50 text-xs">
+            <Users className="w-3.5 h-3.5 text-primary" />
+            <span className="text-muted-foreground">Patients</span>
+            <span className="font-semibold tabular-nums">{patients.length}</span>
           </div>
-          <div className="p-4 rounded-xl border bg-card">
-            <div className="flex items-center gap-2 mb-1"><Upload className="w-3.5 h-3.5 text-primary" /><span className="text-[10px] uppercase tracking-wider text-muted-foreground">Inputs uploaded</span></div>
-            <p className="text-2xl font-semibold">{totalInputCount}</p>
+          <div className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-muted/50 text-xs">
+            <Upload className="w-3.5 h-3.5 text-primary" />
+            <span className="text-muted-foreground">Inputs</span>
+            <span className="font-semibold tabular-nums">{totalInputCount}</span>
           </div>
-          <div className="p-4 rounded-xl border bg-card">
-            <div className="flex items-center gap-2 mb-1"><Timer className="w-3.5 h-3.5 text-primary" /><span className="text-[10px] uppercase tracking-wider text-muted-foreground">Estimated time</span></div>
-            <p className="text-2xl font-semibold">~{totalEta}s</p>
+          <div className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-muted/50 text-xs">
+            <Timer className="w-3.5 h-3.5 text-primary" />
+            <span className="text-muted-foreground">Est.</span>
+            <span className="font-semibold tabular-nums">~{totalEta}s</span>
           </div>
         </div>
 
         {multiModalityPatients.length > 0 && (
-          <div className="p-3 rounded-xl border border-primary/20 bg-primary/5 mb-5 flex items-start gap-2">
-            <ShieldCheck className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
-            <p className="text-xs text-foreground/90 leading-relaxed">
-              <span className="font-medium">{multiModalityPatients.length} patient{multiModalityPatients.length !== 1 ? "s" : ""}</span> in this cohort have both X-ray and MRI inputs.
-              Joint analysis combines structural (osseous) features from radiographs with soft-tissue features from MRI,
-              yielding a more reliable grade and confidence score.
+          <div className="p-2.5 rounded-lg border border-primary/20 bg-primary/5 mb-3 flex items-start gap-2">
+            <ShieldCheck className="w-3.5 h-3.5 text-primary flex-shrink-0 mt-0.5" />
+            <p className="text-[11px] text-foreground/90 leading-relaxed">
+              <span className="font-medium">{multiModalityPatients.length} patient{multiModalityPatients.length !== 1 ? "s" : ""}</span> with X-ray + MRI — joint analysis fuses osseous and soft-tissue signals for a more reliable grade.
             </p>
           </div>
         )}
 
-        <div className="border rounded-xl divide-y mb-6 overflow-hidden">
+        <div className="border rounded-lg divide-y mb-4 overflow-hidden max-h-[min(52vh,520px)] overflow-y-auto">
           {patients.map(p => {
             const mods = getPatientModalities(p);
             const input = cohortInputs.get(p.id);
             return (
-              <div key={p.id} className="p-3 flex items-center gap-3 flex-wrap">
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <User className="w-4 h-4 text-primary" />
+              <div key={p.id} className="px-3 py-2 grid grid-cols-[auto_1fr_auto] sm:grid-cols-[auto_1fr_auto_auto_auto] items-center gap-x-2.5 gap-y-1">
+                <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <User className="w-3.5 h-3.5 text-primary" />
                 </div>
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0">
                   <p className="text-sm font-medium truncate">{p.name}</p>
-                  <p className="text-[10px] text-muted-foreground font-mono">{p.id}</p>
-                  {input && mods.map(mod => input[mod] && (
-                    <p key={mod} className="text-[10px] text-muted-foreground truncate mt-0.5 flex items-center gap-1">
-                      <FileImage className="w-3 h-3 flex-shrink-0" />
-                      <span className="uppercase font-medium">{mod === "xray" ? "X-Ray" : "MRI"}:</span> {input[mod]!.fileName}
+                  <p className="text-[10px] text-muted-foreground font-mono truncate">{p.id}</p>
+                  {input && (
+                    <p className="text-[10px] text-muted-foreground truncate mt-0.5">
+                      {mods.filter(mod => input[mod]).map(mod => `${mod === "xray" ? "X-Ray" : "MRI"}: ${input[mod]!.fileName}`).join(" · ")}
                     </p>
-                  ))}
+                  )}
                 </div>
-                <div className="flex items-center gap-1">
-                  {mods.includes("xray") && <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-muted font-medium">X-Ray</span>}
-                  {mods.includes("mri") && <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-muted font-medium">MRI</span>}
-                  {mods.length > 1 && <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">Joint</span>}
+                <div className="hidden sm:flex items-center gap-1 flex-shrink-0">
+                  {mods.includes("xray") && <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-muted font-medium">X-Ray</span>}
+                  {mods.includes("mri") && <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-muted font-medium">MRI</span>}
+                  {mods.length > 1 && <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">Joint</span>}
                 </div>
                 <button
                   type="button"
                   onClick={() => setPreviewPatient(p)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-[11px] font-medium hover:bg-muted transition-colors"
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-md border text-[10px] font-medium hover:bg-muted transition-colors justify-self-end sm:justify-self-auto"
                 >
-                  <Scan className="w-3 h-3" /> View inputs
+                  <Scan className="w-3 h-3" />
                 </button>
-                <span className="text-[10px] text-muted-foreground flex items-center gap-1"><Timer className="w-3 h-3" />~{estimateSecondsForPatient(p)}s</span>
+                <span className="text-[10px] text-muted-foreground flex items-center gap-0.5 tabular-nums justify-self-end col-span-1 sm:col-auto"><Timer className="w-3 h-3" />~{estimateSecondsForPatient(p)}s</span>
               </div>
             );
           })}
@@ -1336,21 +1342,21 @@ function ProcessingScreen({
     : 0;
 
   return (
-    <motion.div initial={false} animate={{ opacity: 1 }} className="flex-1 min-h-[calc(100dvh-4rem)] overflow-auto">
-      <div className="max-w-xl mx-auto px-6 py-16 flex flex-col items-center">
-        <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-3">Estimated time remaining</p>
-        <p className="text-6xl font-light tabular-nums tracking-tight mb-1">
+    <motion.div initial={false} animate={{ opacity: 1 }} className="flex-1 min-h-0 overflow-auto">
+      <div className="max-w-lg mx-auto px-4 sm:px-6 py-10 sm:py-12 flex flex-col items-center">
+        <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">Estimated time remaining</p>
+        <p className="text-5xl font-light tabular-nums tracking-tight mb-1">
           {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, "0")}
         </p>
-        <p className="text-xs text-muted-foreground mb-8">
+        <p className="text-xs text-muted-foreground mb-6">
           Analyzing · {completedCount} of {patients.length} complete · {Math.round(overallProgress)}%
         </p>
 
-        <div className="w-full h-0.5 bg-muted rounded-full overflow-hidden mb-10">
+        <div className="w-full h-1 bg-muted rounded-full overflow-hidden mb-6">
           <motion.div className="h-full bg-primary" animate={{ width: `${overallProgress}%` }} transition={{ duration: 0.3 }} />
         </div>
 
-        <div className="w-full space-y-3 mb-10">
+        <div className="w-full space-y-2 mb-6 max-h-[min(42vh,360px)] overflow-y-auto pr-0.5">
           {patients.map(p => {
             const prog = progressMap.get(p.id);
             return (
@@ -1476,7 +1482,7 @@ function BatchPatientReviewPanel({
 
   if (review.status === "confirmed") {
     return (
-      <div className="mt-4 p-4 rounded-xl border border-success/30 bg-success/5 flex items-start gap-3">
+      <div className="p-2.5 rounded-lg border border-success/30 bg-success/5 flex items-start gap-2.5">
         <CheckCircle2 className="w-5 h-5 text-success flex-shrink-0 mt-0.5" />
         <div>
           <p className="text-sm font-medium text-success">Diagnosis confirmed</p>
@@ -1490,7 +1496,7 @@ function BatchPatientReviewPanel({
 
   if (review.status === "overridden") {
     return (
-      <div className="mt-4 p-4 rounded-xl border border-warning/30 bg-warning/5 flex items-start gap-3">
+      <div className="p-2.5 rounded-lg border border-warning/30 bg-warning/5 flex items-start gap-2.5">
         <AlertTriangle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
         <div>
           <p className="text-sm font-medium text-warning">Doctor override applied</p>
@@ -1503,10 +1509,10 @@ function BatchPatientReviewPanel({
   }
 
   return (
-    <div className="mt-4 rounded-xl border border-primary/25 bg-primary/5 overflow-hidden">
-      <div className="p-4 flex flex-col sm:flex-row sm:items-center gap-4">
-        <div className="flex items-start gap-3 flex-1 min-w-0">
-          <ShieldCheck className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+    <div className="rounded-lg border border-primary/25 bg-primary/5 overflow-hidden">
+      <div className="p-3 flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="flex items-start gap-2.5 flex-1 min-w-0">
+          <ShieldCheck className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
           <div>
             <p className="text-sm font-medium">Physician review required</p>
             <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
@@ -1612,7 +1618,7 @@ function ResultsOverview({
   onOpenWorkspace: (p: Patient) => void;
   onBackToSelect: () => void;
 }) {
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(patients.map(p => p.id)));
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [previewPatient, setPreviewPatient] = useState<Patient | null>(null);
   const [reviewByPatient, setReviewByPatient] = useState<Map<string, BatchReviewRecord>>(() => {
     const m = new Map<string, BatchReviewRecord>();
@@ -1650,117 +1656,119 @@ function ResultsOverview({
   }, [patients]);
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 overflow-auto">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-success/10 flex items-center justify-center">
-              <CheckCircle2 className="w-5 h-5 text-success" />
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-5">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-full bg-success/10 flex items-center justify-center flex-shrink-0">
+              <CheckCircle2 className="w-4 h-4 text-success" />
             </div>
-            <div>
-              <h1 className="text-xl font-semibold">Review AI Diagnoses</h1>
-              <p className="text-xs text-muted-foreground">
-                {patients.length} patient{patients.length !== 1 ? "s" : ""} analyzed — confirm or override each diagnosis before closing the batch.
+            <div className="min-w-0">
+              <h1 className="text-lg font-semibold">Review AI Diagnoses</h1>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {patients.length} patient{patients.length !== 1 ? "s" : ""} — confirm or override each diagnosis.
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <span className={cn(
-              "text-xs px-2.5 py-1 rounded-full font-medium",
+              "text-[11px] px-2 py-1 rounded-full font-medium",
               pendingCount > 0 ? "bg-warning/10 text-warning" : "bg-success/10 text-success",
             )}>
               {reviewedCount}/{patients.length} reviewed
             </span>
-            <button onClick={onBackToSelect} className="px-3 py-1.5 rounded-lg border text-xs font-medium hover:bg-muted transition-colors">
+            <button onClick={onBackToSelect} className="px-2.5 py-1.5 rounded-lg border text-xs font-medium hover:bg-muted transition-colors">
               New cohort
             </button>
           </div>
         </div>
 
         {pendingCount > 0 && (
-          <div className="mb-6 p-4 rounded-xl border border-primary/20 bg-primary/5 flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-medium">Action required</p>
-              <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                AI analysis is complete. Review findings for each patient below, then <span className="font-medium text-foreground">Confirm AI diagnosis</span> or{" "}
-                <span className="font-medium text-foreground">Override</span> with your clinical grade. Reports are only finalized after your decision.
-              </p>
-            </div>
+          <div className="mb-3 p-2.5 rounded-lg border border-primary/20 bg-primary/5 flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              <span className="font-medium text-foreground">Action required —</span> confirm or override each patient below. Reports finalize after your decision.
+            </p>
           </div>
         )}
 
         {pendingCount === 0 && patients.length > 0 && (
-          <div className="mb-6 p-4 rounded-xl border border-success/30 bg-success/5 flex items-start gap-3">
-            <CheckCircle2 className="w-5 h-5 text-success flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-medium text-success">All patients reviewed</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Every report in this batch has been confirmed or overridden.</p>
-            </div>
+          <div className="mb-3 p-2.5 rounded-lg border border-success/30 bg-success/5 flex items-start gap-2">
+            <CheckCircle2 className="w-4 h-4 text-success flex-shrink-0 mt-0.5" />
+            <p className="text-[11px] text-success font-medium">All patients reviewed — batch complete.</p>
           </div>
         )}
 
-        <div className="space-y-5">
+        <div className="space-y-2.5">
           {patients.map(p => {
             const batchResult = cohortResults.get(p.id);
             const analysis = computeJointAnalysis(p, batchResult);
             const mods = getPatientModalities(p);
             const review = reviewByPatient.get(p.id) ?? { status: "pending" as const };
+            const isExpanded = expanded.has(p.id);
             return (
               <div key={p.id} className={cn(
-                "border rounded-xl overflow-hidden",
+                "border rounded-lg overflow-hidden",
                 review.status === "pending" && "border-primary/20",
                 review.status === "confirmed" && "border-success/30",
                 review.status === "overridden" && "border-warning/30",
               )}>
-                <div className="p-4 bg-muted/30 border-b flex items-center gap-3 flex-wrap">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <User className="w-5 h-5 text-primary" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-sm font-medium">{p.name}</p>
-                      <span className="text-[10px] text-muted-foreground font-mono">{p.id}</span>
-                      <span className="text-[10px] text-muted-foreground">{p.age}yo · {p.gender} · BMI {p.bmi}</span>
-                      {review.status === "pending" && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-warning/10 text-warning font-medium">Pending review</span>
-                      )}
-                      {review.status === "confirmed" && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-success/10 text-success font-medium">Confirmed</span>
-                      )}
-                      {review.status === "overridden" && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-warning/10 text-warning font-medium">Overridden</span>
-                      )}
+                <div className="px-3 py-2.5 bg-muted/30 border-b grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2.5 items-center">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <User className="w-4 h-4 text-primary" />
                     </div>
-                    <div className="flex items-center gap-1 mt-1">
-                      {mods.includes("xray") && <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-background border font-medium text-muted-foreground">X-Ray</span>}
-                      {mods.includes("mri") && <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-background border font-medium text-muted-foreground">MRI</span>}
-                      {mods.length > 1 && <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">Joint analysis</span>}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 flex-shrink-0">
-                    <div className="text-right">
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Final grade</p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <GradeBadge grade={analysis.finalGrade} />
-                        <ConfidenceGauge value={analysis.finalConfidence} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="text-sm font-medium">{p.name}</p>
+                        <span className="text-[10px] text-muted-foreground font-mono">{p.id}</span>
+                        {review.status === "pending" && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-warning/10 text-warning font-medium">Pending</span>
+                        )}
+                        {review.status === "confirmed" && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-success/10 text-success font-medium">Confirmed</span>
+                        )}
+                        {review.status === "overridden" && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-warning/10 text-warning font-medium">Overridden</span>
+                        )}
                       </div>
+                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap text-[10px] text-muted-foreground">
+                        <span>{p.age}yo · BMI {p.bmi}</span>
+                        {mods.includes("xray") && <span className="uppercase px-1 py-0.5 rounded bg-background border font-medium">X-Ray</span>}
+                        {mods.includes("mri") && <span className="uppercase px-1 py-0.5 rounded bg-background border font-medium">MRI</span>}
+                        {mods.length > 1 && <span className="uppercase px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">Joint</span>}
+                        {!isExpanded && (
+                          <span className="text-foreground/80">
+                            · KL {analysis.finalGrade} · {analysis.finalConfidence}%
+                            {analysis.perModality.length > 1 && (
+                              <span className={analysis.agreement === "concordant" ? " text-success" : " text-warning"}>
+                                {" "}· {analysis.agreement === "concordant" ? "concordant" : "discordant"}
+                              </span>
+                            )}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0 flex-wrap md:justify-end">
+                    <div className="flex items-center gap-1.5">
+                      <GradeBadge grade={analysis.finalGrade} />
+                      <ConfidenceGauge value={analysis.finalConfidence} />
                     </div>
                     <button
                       onClick={() => setPreviewPatient(p)}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-medium hover:bg-muted transition-colors"
+                      className="inline-flex items-center gap-1 px-2 py-1.5 rounded-md border text-[11px] font-medium hover:bg-muted transition-colors"
                     >
-                      <Scan className="w-3.5 h-3.5" /> View inputs
+                      <Scan className="w-3 h-3" /> Inputs
                     </button>
                     <button
                       onClick={() => onOpenWorkspace(p)}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-primary text-primary-foreground text-[11px] font-medium hover:bg-primary/90 transition-colors"
                     >
-                      Open workspace<ArrowRight className="w-3.5 h-3.5" />
+                      Workspace<ArrowRight className="w-3 h-3" />
                     </button>
                   </div>
                 </div>
-                <div className="p-4">
-                  <ClinicalInterpretation patient={p} analysis={analysis} batchResult={batchResult} />
+                <div className="px-3 py-2.5 space-y-2">
                   <BatchPatientReviewPanel
                     patient={p}
                     batchResult={batchResult}
@@ -1770,14 +1778,17 @@ function ResultsOverview({
                     onReviewComplete={record => markReviewed(p.id, record)}
                   />
                   <button
+                    type="button"
                     onClick={() => toggle(p.id)}
-                    className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline"
                   >
-                    <ChevronRight className={cn("w-3.5 h-3.5 transition-transform", expanded.has(p.id) && "rotate-90")} />
-                    {expanded.has(p.id) ? "Hide model outputs & inputs" : "View model outputs & inputs"}
+                    <ChevronRight className={cn("w-3 h-3 transition-transform", isExpanded && "rotate-90")} />
+                    {isExpanded ? "Hide clinical details & model outputs" : "Show clinical details & model outputs"}
                   </button>
-                  {expanded.has(p.id) && (
-                    <div className="mt-3 rounded-lg border bg-muted/20 overflow-hidden">
+                  {isExpanded && (
+                    <div className="space-y-2 pt-0.5">
+                      <ClinicalInterpretation patient={p} analysis={analysis} batchResult={batchResult} compact />
+                    <div className="rounded-lg border bg-muted/20 overflow-hidden">
                       {batchResult?.perModality.map(row => (
                         <BatchModalityDetail key={row.modality} row={row} />
                       ))}
@@ -1802,6 +1813,7 @@ function ResultsOverview({
                           </div>
                         );
                       })}
+                    </div>
                     </div>
                   )}
                 </div>
@@ -3484,21 +3496,30 @@ function DiagnosticWorkspace({
                 </button>
               </div>
             </div>
-          ) : (
+          ) : diagnosticStage === "idle" ? (
+            <div className="max-w-4xl mx-auto py-3 px-4">
+              <div className="rounded-lg border border-dashed bg-muted/15 px-4 py-3 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <Upload className="w-4 h-4 text-primary" />
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Upload a scan in the viewer above, then confirm input to run AI diagnosis. Results and clinical interpretation will appear here when analysis completes.
+                </p>
+              </div>
+            </div>
+          ) : isProcessing ? (
             <div className="max-w-4xl mx-auto py-6 px-4">
               <div className="rounded-xl border bg-card p-6 flex flex-col items-center gap-4 text-center">
                 <Loader2 className="w-8 h-8 text-primary animate-spin" />
                 <div>
                   <p className="text-sm font-medium">
-                    {isProcessing ? `Analyzing ${activeModality === "xray" ? "X-Ray" : "MRI"}…` : "Upload a scan to begin"}
+                    Analyzing {activeModality === "xray" ? "X-Ray" : "MRI"}…
                   </p>
-                  {isProcessing && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {stages.find((_, i) => i === currentStageIndex)?.label ?? "Processing…"}
-                    </p>
-                  )}
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {stages.find((_, i) => i === currentStageIndex)?.label ?? "Processing…"}
+                  </p>
                 </div>
-                {isProcessing && uploadProgress < 100 && (
+                {uploadProgress < 100 && (
                   <div className="w-full max-w-xs space-y-1">
                     <div className="flex items-center justify-between text-[10px] text-muted-foreground">
                       <span>Uploading…</span>
@@ -3511,7 +3532,7 @@ function DiagnosticWorkspace({
                 )}
               </div>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
       <ConfirmInputDialog
@@ -3554,30 +3575,30 @@ function HistoryView({ onOpen, onBack }: { onOpen: (p: Patient) => void; onBack:
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 overflow-auto">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
-        <div className="flex items-center justify-between mb-6">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-5">
+        <div className="flex items-center justify-between gap-3 mb-3">
           <div>
-            <button onClick={onBack} className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mb-2">
+            <button onClick={onBack} className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mb-1.5">
               <ArrowLeft className="w-3 h-3" /> Back
             </button>
-            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">Diagnosis History</h1>
-            <p className="text-xs text-muted-foreground mt-0.5">Past AI analyses with their inputs and outputs.</p>
+            <h1 className="text-lg sm:text-xl font-semibold tracking-tight">Diagnosis History</h1>
+            <p className="text-xs text-muted-foreground mt-0.5">Past AI analyses with inputs and outputs.</p>
           </div>
-          <span className="text-xs text-muted-foreground">{history.length} record{history.length !== 1 ? "s" : ""}</span>
+          <span className="text-[11px] text-muted-foreground shrink-0">{history.length} record{history.length !== 1 ? "s" : ""}</span>
         </div>
 
-        <div className="relative mb-5">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <div className="relative mb-3">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
           <input
             value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Search by name or patient ID..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/30"
+            className="w-full pl-9 pr-3 py-2 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring/30"
           />
         </div>
 
-        <div className="rounded-xl border bg-card divide-y">
+        <div className="rounded-lg border bg-card divide-y max-h-[min(58vh,580px)] overflow-y-auto">
           {history.map(({ patient, scan }) => (
-            <div key={`${patient.id}-${scan.id}`} className="p-4 flex flex-col sm:flex-row sm:items-center gap-3 hover:bg-muted/30 transition-colors">
+            <div key={`${patient.id}-${scan.id}`} className="px-3 py-2.5 grid grid-cols-1 sm:grid-cols-[1fr_auto] sm:items-center gap-2 hover:bg-muted/30 transition-colors">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 mb-1">
                   <p className="text-sm font-medium truncate">{patient.name}</p>
@@ -3594,18 +3615,20 @@ function HistoryView({ onOpen, onBack }: { onOpen: (p: Patient) => void; onBack:
                   Input: {scan.preprocessing.join(" → ")} · Model: {scan.modelUsed}
                 </p>
               </div>
-              <div className="flex items-center gap-4 sm:gap-6">
-                <div className="text-right">
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Grade</p>
-                  <div className="mt-0.5"><GradeBadge grade={scan.grade as number} /></div>
-                </div>
-                <div className="text-right">
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Confidence</p>
-                  <p className="text-sm font-semibold tabular-nums">{scan.aiConfidence?.toFixed(1)}%</p>
+              <div className="flex items-center gap-3 sm:gap-4 justify-between sm:justify-end">
+                <div className="flex items-center gap-3">
+                  <div className="text-center">
+                    <p className="text-[9px] uppercase tracking-wider text-muted-foreground">Grade</p>
+                    <div className="mt-0.5"><GradeBadge grade={scan.grade as number} /></div>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[9px] uppercase tracking-wider text-muted-foreground">Conf.</p>
+                    <p className="text-xs font-semibold tabular-nums">{scan.aiConfidence?.toFixed(1)}%</p>
+                  </div>
                 </div>
                 <button
                   onClick={() => onOpen(patient)}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium border hover:bg-muted transition-colors"
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[11px] font-medium border hover:bg-muted transition-colors"
                 >
                   Open <ChevronRight className="w-3 h-3" />
                 </button>

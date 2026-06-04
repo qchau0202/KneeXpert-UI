@@ -74,14 +74,14 @@ function AdminSidebarContent({ collapsed, onNavigate, onToggle }: { collapsed: b
               onClick={onNavigate}
               title={collapsed ? item.label : undefined}
               className={cn(
-                "flex items-center gap-3 rounded-lg text-sm transition-all duration-150",
+                "flex items-center gap-3 rounded-lg text-sm transition-colors duration-150",
                 collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2",
                 isActive
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground font-semibold"
                   : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
               )}
             >
-              <item.icon className="w-4 h-4 flex-shrink-0" />
+              <item.icon className={cn("w-4 h-4 flex-shrink-0", isActive && "text-sidebar-accent-foreground")} />
               {!collapsed && <span className="whitespace-nowrap">{item.label}</span>}
             </NavLink>
           );
